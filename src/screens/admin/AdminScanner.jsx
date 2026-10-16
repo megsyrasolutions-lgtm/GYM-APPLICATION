@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   QrCode, 
   Flashlight, 
@@ -16,9 +16,10 @@ import {
   Activity
 } from 'lucide-react';
 import { playScannerBeep } from '../../utils/audio';
+import { getComputedMemberStatus } from '../../utils/statusHelper';
 
 export default function AdminScanner({ 
-  members, 
+  members = [], 
   onLogCheckIn, 
   soundEnabled = true 
 }) {
@@ -26,17 +27,40 @@ export default function AdminScanner({
   const [manualIdInput, setManualIdInput] = useState('');
   const [lastScannedResult, setLastScannedResult] = useState(null);
 
-  // Today's attendance log
-  const [todayAttendance, setTodayAttendance] = useState([]);
+  const todayDateStr = new Date().toISOString().split('T')[0];
+  const ATTENDANCE_STORAGE_KEY = `bodylife_attendance_${todayDateStr}`;
+
+  // Today's attendance log (persisted in local storage per day)
+  const [todayAttendance, setTodayAttendance] = useState(() => {
+    try {
+      const raw = localStorage.getItem(ATTENDANCE_STORAGE_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(ATTENDANCE_STORAGE_KEY, JSON.stringify(todayAttendance));
+    } catch (e) {
+      console.warn('Failed to save attendance:', e);
+    }
+  }, [todayAttendance, ATTENDANCE_STORAGE_KEY]);
 
   const handleScanMember = (memberId) => {
+    if (!memberId || !memberId.trim()) return;
+    const cleanQuery = memberId.trim().toLowerCase();
+
     const member = members.find(m => 
-      m.id.toLowerCase() === memberId.toLowerCase() || 
-      m.name.toLowerCase().includes(memberId.toLowerCase())
+      (m.id && m.id.toLowerCase() === cleanQuery) || 
+      (m.name && m.name.toLowerCase() === cleanQuery) ||
+      (m.phone && m.phone.includes(cleanQuery))
     );
     
     if (!member) {
-      alert('Member ID not found! Please check again.');
+      if (soundEnabled) playScannerBeep('warning');
+      alert(`Member ID or Name "${memberId}" not found! Please check again.`);
       return;
     }
 
@@ -45,28 +69,41 @@ export default function AdminScanner({
 
     // Check if already checked in today
     const alreadyIn = todayAttendance.some(x => x.id === member.id);
+    const computedStatus = getComputedMemberStatus(member);
 
     let stateType = 'SUCCESS';
     let message = 'Access Granted · Turnstile Unlocked';
 
     if (alreadyIn) {
       stateType = 'ALREADY_IN';
-      message = 'Already checked in today at ' + todayAttendance.find(x => x.id === member.id).timeIn;
+      const existingRecord = todayAttendance.find(x => x.id === member.id);
+      message = `Already checked in today at ${existingRecord?.timeIn || 'earlier'}`;
       if (soundEnabled) playScannerBeep('warning');
-    } else if (member.status === 'Inactive') {
+    } else if (computedStatus === 'Inactive') {
       stateType = 'INACTIVE';
       message = 'Membership Deactivated · Front Desk Assistance Required';
       if (soundEnabled) playScannerBeep('warning');
-    } else if (member.status === 'Overdue') {
+    } else if (computedStatus === 'Expired') {
       stateType = 'EXPIRED';
-      message = `Fee Overdue ₹${member.pendingAmount.toLocaleString()} · Please clear dues at reception`;
+      message = `Membership Expired on ${member.expiryDate || 'N/A'} · Renewal Required`;
+      if (soundEnabled) playScannerBeep('warning');
+    } else if (computedStatus === 'Overdue') {
+      stateType = 'EXPIRED';
+      message = `Fee Overdue ₹${Number(member.pendingAmount || 0).toLocaleString()} · Please clear dues at reception`;
       if (soundEnabled) playScannerBeep('warning');
     } else {
       stateType = 'SUCCESS';
       if (soundEnabled) playScannerBeep('success');
       // Add to today's log
       setTodayAttendance(prev => [
-        { id: member.id, name: member.name, timeIn: timeString, status: member.status, avatar: member.avatar, package: member.packageName },
+        { 
+          id: member.id, 
+          name: member.name, 
+          timeIn: timeString, 
+          status: computedStatus, 
+          photo: member.photo, 
+          package: member.packageName 
+        },
         ...prev.filter(x => x.id !== member.id)
       ]);
       if (onLogCheckIn) onLogCheckIn(member);

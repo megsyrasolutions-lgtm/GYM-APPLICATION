@@ -5,12 +5,13 @@ import {
   Clock, 
   AlertCircle, 
   Search, 
-  CheckCircle,
-  CheckCircle2,
-  Phone,
-  Bell,
-  RefreshCw
+  CheckCircle, 
+  CheckCircle2, 
+  Phone, 
+  Bell, 
+  RefreshCw 
 } from 'lucide-react';
+import { getComputedMemberStatus } from '../../utils/statusHelper';
 
 export default function AdminAlerts({ 
   members = [], 
@@ -24,8 +25,11 @@ export default function AdminAlerts({
   const [activeTab, setActiveTab] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const expiringMembers = members.filter(m => m.status === 'Expiring');
-  const overdueMembers = members.filter(m => m.status === 'Overdue' || (m.pendingAmount && m.pendingAmount > 0));
+  const expiringMembers = members.filter(m => getComputedMemberStatus(m) === 'Expiring');
+  const overdueMembers = members.filter(m => {
+    const s = getComputedMemberStatus(m);
+    return s === 'Overdue' || s === 'Expired';
+  });
   const totalPending = members.reduce((sum, m) => sum + (Number(m.pendingAmount) || 0), 0);
 
   // Unique list of members needing alert attention
@@ -41,8 +45,9 @@ export default function AdminAlerts({
   const unsentMembers = allAlertMembers.filter(m => !(m.reminderSent || m.reminderStatus === 'Sent'));
 
   const displayedList = allAlertMembers.filter(m => {
-    if (activeTab === 'EXPIRING') return m.status === 'Expiring';
-    if (activeTab === 'OVERDUE') return m.status === 'Overdue' || (m.pendingAmount > 0);
+    const computed = getComputedMemberStatus(m);
+    if (activeTab === 'EXPIRING') return computed === 'Expiring';
+    if (activeTab === 'OVERDUE') return computed === 'Overdue' || computed === 'Expired';
     if (activeTab === 'SENT') return m.reminderSent || m.reminderStatus === 'Sent';
     if (activeTab === 'PENDING_MSG') return !(m.reminderSent || m.reminderStatus === 'Sent');
     return true;

@@ -19,6 +19,7 @@ export default function DesktopLayout({
   onOpenWhatsApp,
   onExportExcel,
   onExportSql,
+  onImportDatabase,
   unreadAlertsCount = 0,
   syncState = null
 }) {
@@ -36,6 +37,7 @@ export default function DesktopLayout({
         onOpenRecordPayment={onOpenRecordPayment}
         onExportExcel={onExportExcel}
         onExportSql={onExportSql}
+        onImportDatabase={onImportDatabase}
         syncState={syncState}
       />
 

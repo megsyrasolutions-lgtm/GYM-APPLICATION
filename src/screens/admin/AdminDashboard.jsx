@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   FileText
 } from 'lucide-react';
+import { getComputedMemberStatus } from '../../utils/statusHelper';
 
 export default function AdminDashboard({ 
   members = [], 
@@ -20,10 +21,13 @@ export default function AdminDashboard({
   onOpenWhatsApp
 }) {
   const totalMembers = members.length;
-  const activeMembers = members.filter(m => m.status === 'Active').length;
-  const expiringMembers = members.filter(m => m.status === 'Expiring');
-  const overdueMembers = members.filter(m => m.status === 'Overdue' || (m.pendingAmount && m.pendingAmount > 0));
-  const inactiveMembers = members.filter(m => m.status === 'Inactive');
+  const activeMembers = members.filter(m => getComputedMemberStatus(m) === 'Active').length;
+  const expiringMembers = members.filter(m => getComputedMemberStatus(m) === 'Expiring');
+  const overdueMembers = members.filter(m => {
+    const s = getComputedMemberStatus(m);
+    return s === 'Overdue' || s === 'Expired';
+  });
+  const inactiveMembers = members.filter(m => getComputedMemberStatus(m) === 'Inactive');
   const pendingFeesTotal = members.reduce((sum, m) => sum + (Number(m.pendingAmount) || 0), 0);
   const totalCollected = members.reduce((sum, m) => sum + (Number(m.paidAmount) || 0), 0);
   const totalExpected = totalCollected + pendingFeesTotal;

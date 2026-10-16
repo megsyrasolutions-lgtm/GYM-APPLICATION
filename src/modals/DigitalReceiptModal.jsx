@@ -1,6 +1,6 @@
 import React from 'react';
 import bodylifeLogo from '../assets/bodylife_logo.png';
-import { X, ShieldCheck, Share2, Download, CheckCircle2, Calendar, Clock } from 'lucide-react';
+import { X, ShieldCheck, Share2, Printer, CheckCircle2, Calendar, Clock } from 'lucide-react';
 
 export default function DigitalReceiptModal({ receipt, onClose, onShareWhatsApp }) {
   if (!receipt) return null;
@@ -8,12 +8,16 @@ export default function DigitalReceiptModal({ receipt, onClose, onShareWhatsApp 
   const todayStr = new Date().toISOString().split('T')[0];
   const isFutureDated = receipt.isFutureDated || receipt.status === 'Scheduled' || (receipt.date && receipt.date > todayStr);
 
+  const handlePrint = () => {
+    window.print();
+  };
+
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div 
         className="desktop-modal-dialog" 
         onClick={(e) => e.stopPropagation()}
-        style={{ maxWidth: '500px' }}
+        style={{ maxWidth: '520px', maxHeight: '92vh', overflowY: 'auto' }}
       >
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
@@ -168,12 +172,39 @@ export default function DigitalReceiptModal({ receipt, onClose, onShareWhatsApp 
         </div>
 
         {/* Action Buttons */}
-        <div style={{ display: 'flex', gap: '10px' }}>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           <button
+            type="button"
+            onClick={handlePrint}
+            className="tap-btn"
+            style={{
+              flex: 1,
+              minWidth: '130px',
+              padding: '10px',
+              borderRadius: '8px',
+              border: '1px solid #CBD5E1',
+              background: '#F8FAFC',
+              color: '#0F172A',
+              fontSize: '13px',
+              fontWeight: '700',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              cursor: 'pointer'
+            }}
+          >
+            <Printer size={16} />
+            <span>Print Receipt</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => onShareWhatsApp && onShareWhatsApp(receipt)}
             className="tap-btn"
             style={{
               flex: 1,
+              minWidth: '130px',
               padding: '10px',
               borderRadius: '8px',
               border: 'none',
@@ -189,10 +220,11 @@ export default function DigitalReceiptModal({ receipt, onClose, onShareWhatsApp 
             }}
           >
             <Share2 size={15} />
-            <span>Send on WhatsApp</span>
+            <span>WhatsApp</span>
           </button>
 
           <button
+            type="button"
             onClick={onClose}
             className="tap-btn btn-secondary"
             style={{ padding: '10px 18px', cursor: 'pointer' }}

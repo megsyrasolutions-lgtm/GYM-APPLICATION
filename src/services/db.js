@@ -271,3 +271,124 @@ export function downloadFile(filename, content, type = 'text/plain') {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
+
+/**
+ * Export full JSON backup
+ */
+export function exportDatabaseToJson(members = []) {
+  const jsonStr = JSON.stringify(members, null, 2);
+  const dateStr = new Date().toISOString().split('T')[0];
+  downloadFile(`BodyLife_Backup_${dateStr}.json`, jsonStr, 'application/json');
+}
+
+/**
+ * Import and restore members & payments ledger from an exported Excel file (.xlsx)
+ */
+export async function importDatabaseFromExcel(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+
+        const firstSheetName = workbook.SheetNames[0];
+        const rawMembers = XLSX.utils.sheet_to_json(workbook.Sheets[firstSheetName]);
+
+        let rawPayments = [];
+        if (workbook.SheetNames.includes('Fee Receipts Ledger')) {
+          rawPayments = XLSX.utils.sheet_to_json(workbook.Sheets['Fee Receipts Ledger']);
+        }
+
+        const members = rawMembers
+          .filter(r => r['Member ID'] && r['Full Name'] && r['Full Name'] !== 'No members currently enrolled')
+          .map(r => {
+            const memberId = String(r['Member ID'] || '').trim();
+            const memberPayments = rawPayments
+              .filter(p => String(p['Member ID'] || '').trim() === memberId)
+              .map(p => ({
+                receiptId: p['Receipt ID'] || `REC-${Math.floor(1000 + Math.random() * 9000)}`,
+                date: p['Payment Date'] || '',
+                mode: p['Payment Mode'] || 'Cash',
+                utr: p['UTR / Reference No'] || 'CASH-DESK',
+                amount: Number(p['Amount Paid (₹)']) || 0,
+                package: p['Package Plan'] || r['Membership Package'] || '',
+                status: p['Payment Status'] || 'Success'
+              }));
+
+            return {
+              id: memberId,
+              name: String(r['Full Name'] || '').trim(),
+              phone: String(r['Phone Number'] || '').trim(),
+              email: r['Email Address'] || '',
+              gender: r['Gender'] || 'Male',
+              age: Number(r['Age']) || 0,
+              packageName: r['Membership Package'] || '1 Month Standard',
+              totalFee: Number(r['Total Fee (₹)']) || 0,
+              paidAmount: Number(r['Amount Paid (₹)']) || 0,
+              pendingAmount: Number(r['Pending Balance (₹)']) || 0,
+              startDate: r['Start Date'] || '',
+              expiryDate: r['Expiry Date'] || '',
+              status: r['Account Status'] || 'Active',
+              lockerNumber: r['Locker Number'] || '',
+              paymentHistory: memberPayments
+            };
+          });
+
+        saveLocalDatabase(members);
+        resolve(members);
+      } catch (err) {
+        reject(err);
+      }
+    };
+    reader.onerror = reject;
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+/**
+ * Import and restore members database from a JSON backup (.json)
+ */
+export async function importDatabaseFromJson(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const parsed = JSON.parse(e.target.result);
+        if (Array.isArray(parsed)) {
+          saveLocalDatabase(parsed);
+          resolve(parsed);
+        } else {
+          reject(new Error('Invalid backup format: root element must be a members array.'));
+        }
+      } catch (err) {
+        reject(err);
+      }
+    };
+    reader.onerror = reject;
+    reader.readAsText(file);
+  });
+}
+
+const PACKAGES_STORAGE_KEY = 'bodylife_packages_v1';
+
+export function getCustomPackages() {
+  try {
+    const raw = localStorage.getItem(PACKAGES_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (e) {
+    console.warn('Failed to load packages:', e);
+  }
+  return DEFAULT_PACKAGES;
+}
+
+export function saveCustomPackages(packages) {
+  try {
+    localStorage.setItem(PACKAGES_STORAGE_KEY, JSON.stringify(packages));
+  } catch (e) {
+    console.error('Failed to save packages:', e);
+  }
+}

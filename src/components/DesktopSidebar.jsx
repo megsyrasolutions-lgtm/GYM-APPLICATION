@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import bodylifeLogo from '../assets/bodylife_logo.png';
 import { 
   Dumbbell, 
@@ -10,12 +10,14 @@ import {
   VolumeX, 
   Plus, 
   Database,
-  Download,
-  FileSpreadsheet,
-  ShieldCheck,
-  Cloud,
-  CloudOff,
-  RefreshCw
+  Download, 
+  FileSpreadsheet, 
+  ShieldCheck, 
+  Cloud, 
+  CloudOff, 
+  RefreshCw,
+  QrCode,
+  Upload
 } from 'lucide-react';
 
 export default function DesktopSidebar({
@@ -29,12 +31,16 @@ export default function DesktopSidebar({
   onOpenRecordPayment,
   onExportExcel,
   onExportSql,
+  onImportDatabase,
   syncState = null
 }) {
+  const fileInputRef = useRef(null);
+
   const navItems = [
     { id: 'dashboard', label: 'Financial Overview', icon: LayoutDashboard },
     { id: 'members', label: 'Members Directory', icon: Users, badge: totalMembersCount },
     { id: 'payments', label: 'Fee Collections & Ledger', icon: CreditCard },
+    { id: 'scanner', label: 'Gate & Check-In', icon: QrCode },
     { id: 'alerts', label: 'Due Reminders & WhatsApp', icon: Bell, badge: alertsBadgeCount, badgeColor: '#DC2626' },
   ];
 
@@ -211,6 +217,46 @@ export default function DesktopSidebar({
               <FileSpreadsheet size={15} color="#16A34A" />
               <span>Export to Excel (.xlsx)</span>
             </button>
+
+            {onImportDatabase && (
+              <>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept=".xlsx, .xls, .json"
+                  style={{ display: 'none' }}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      onImportDatabase(file);
+                      e.target.value = '';
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="tap-btn"
+                  title="Restore or import client records from Excel (.xlsx) or JSON backup"
+                  style={{
+                    padding: '9px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid #E2E8F0',
+                    background: '#FFFFFF',
+                    color: '#475569',
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <Upload size={15} color="#2563EB" />
+                  <span>Restore / Import Data</span>
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>

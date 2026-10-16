@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X, CreditCard, Check, AlertCircle, AlertTriangle, Calendar, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { X, CreditCard, Check, AlertCircle, AlertTriangle, Calendar, ShieldCheck, CheckCircle2, RefreshCw } from 'lucide-react';
 
-export default function RecordPaymentModal({ members = [], preselectedMember = null, onClose, onRecordPayment }) {
+export default function RecordPaymentModal({ members = [], preselectedMember = null, onClose, onRecordPayment, onOpenRenewModal }) {
   const [selectedMemberId, setSelectedMemberId] = useState(preselectedMember?.id || members[0]?.id || '');
   const member = members.find(m => m.id === selectedMemberId) || members[0];
 
@@ -40,9 +40,8 @@ export default function RecordPaymentModal({ members = [], preselectedMember = n
   const selectedBillingMonth = paymentDate ? paymentDate.slice(0, 7) : todayStr.slice(0, 7);
   const monthName = paymentDate ? new Date(paymentDate + 'T00:00:00').toLocaleString('default', { month: 'long', year: 'numeric' }) : '';
 
-  // Check for duplicate monthly payment for this member
-  // (if this member has already paid their fee for this month)
-  const duplicateMonthPayment = member && Array.isArray(member.paymentHistory)
+  // Check for duplicate monthly payment only if member has NO pending balance left for their plan
+  const duplicateMonthPayment = (member && pendingAmount <= 0 && Array.isArray(member.paymentHistory))
     ? member.paymentHistory.find(p => {
         if (!p.date) return false;
         const pMonth = p.date.slice(0, 7);
@@ -59,9 +58,9 @@ export default function RecordPaymentModal({ members = [], preselectedMember = n
     e.preventDefault();
     setErrorMessage('');
 
-    // Requirement 9: Prevent additional payments after full payment
+    // If fully paid, advise renewal
     if (isFullyPaid) {
-      setErrorMessage(`This bill has been fully paid (₹${totalFee.toLocaleString()}). No additional payments can be recorded.`);
+      setErrorMessage(`This cycle's bill has been fully settled (₹${totalFee.toLocaleString()}). Use the "Renew Plan" option to extend the membership for the next period.`);
       return;
     }
 
@@ -76,10 +75,10 @@ export default function RecordPaymentModal({ members = [], preselectedMember = n
       return;
     }
 
-    // Requirement 3: Duplicate monthly payment detection
+    // Only block as duplicate if pending balance is 0 and payment already settled this month
     if (duplicateMonthPayment) {
       setErrorMessage(
-        `Duplicate Payment Detected: A fee payment for ${monthName} has already been recorded for ${member.name} on ${duplicateMonthPayment.date} (Receipt #${duplicateMonthPayment.receiptId}). Duplicate payments for the same month are not allowed.`
+        `Duplicate Payment Detected: The fee for ${monthName} has already been fully settled for ${member.name} on ${duplicateMonthPayment.date} (Receipt #${duplicateMonthPayment.receiptId}). To extend the membership, please use Renew Plan.`
       );
       return;
     }
@@ -172,18 +171,36 @@ export default function RecordPaymentModal({ members = [], preselectedMember = n
             padding: '12px 14px',
             display: 'flex',
             alignItems: 'center',
+            justifyContent: 'space-between',
             gap: '10px',
-            color: '#166534'
+            color: '#166534',
+            flexWrap: 'wrap'
           }}>
-            <CheckCircle2 size={18} color="#16A34A" style={{ flexShrink: 0 }} />
-            <div>
-              <p style={{ fontSize: '13px', fontWeight: '800', margin: 0 }}>
-                Bill Fully Settled (₹{totalFee.toLocaleString()})
-              </p>
-              <p style={{ fontSize: '11.5px', margin: '2px 0 0', opacity: 0.9 }}>
-                This member has completed 100% of the membership fee. No additional payments can be added to this bill.
-              </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <CheckCircle2 size={18} color="#16A34A" style={{ flexShrink: 0 }} />
+              <div>
+                <p style={{ fontSize: '13px', fontWeight: '800', margin: 0 }}>
+                  Bill Fully Settled (₹{totalFee.toLocaleString()})
+                </p>
+                <p style={{ fontSize: '11.5px', margin: '2px 0 0', opacity: 0.9 }}>
+                  This cycle is fully paid. To extend membership for the next period, renew their plan.
+                </p>
+              </div>
             </div>
+            {onOpenRenewModal && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onOpenRenewModal(member);
+                }}
+                className="tap-btn btn-primary"
+                style={{ padding: '6px 14px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <RefreshCw size={14} />
+                <span>Renew Plan</span>
+              </button>
+            )}
           </div>
         )}
 

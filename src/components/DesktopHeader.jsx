@@ -17,6 +17,7 @@ import {
   CloudOff,
   RefreshCw
 } from 'lucide-react';
+import { getComputedMemberStatus } from '../utils/statusHelper';
 
 export default function DesktopHeader({
   activeTab,
@@ -56,14 +57,18 @@ export default function DesktopHeader({
     };
   }, [showNotificationsDropdown]);
 
-  const overdueMembers = members.filter(m => m.status === 'Overdue' || (m.pendingAmount && m.pendingAmount > 0));
-  const expiringMembers = members.filter(m => m.status === 'Expiring');
+  const overdueMembers = members.filter(m => {
+    const s = getComputedMemberStatus(m);
+    return s === 'Overdue' || s === 'Expired';
+  });
+  const expiringMembers = members.filter(m => getComputedMemberStatus(m) === 'Expiring');
   const alertList = [...overdueMembers, ...expiringMembers];
 
   const screenMeta = {
     dashboard: { title: 'Financial Overview', subtitle: 'Live collections, revenue efficiency and pending dues' },
     members: { title: 'Members Directory', subtitle: 'Manage member accounts, packages, and membership status' },
     payments: { title: 'Fee Collections & Ledger', subtitle: 'Official Cash and UPI receipts registered at reception' },
+    scanner: { title: 'Entrance & Gate Scanner', subtitle: 'Real-time check-in, attendance verification, and turnstile gate control' },
     alerts: { title: 'Due Reminders & WhatsApp', subtitle: 'Track overdue fees and dispatch payment reminder notices' }
   };
 

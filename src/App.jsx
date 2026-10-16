@@ -6,6 +6,7 @@ import AdminDashboard from './screens/admin/AdminDashboard';
 import AdminMembers from './screens/admin/AdminMembers';
 import AdminPayments from './screens/admin/AdminPayments';
 import AdminAlerts from './screens/admin/AdminAlerts';
+import AdminScanner from './screens/admin/AdminScanner';
 
 // Modals
 import AddMemberModal from './modals/AddMemberModal';
@@ -13,15 +14,25 @@ import RecordPaymentModal from './modals/RecordPaymentModal';
 import DigitalReceiptModal from './modals/DigitalReceiptModal';
 import WhatsAppModal from './modals/WhatsAppModal';
 import MemberDetailModal from './modals/MemberDetailModal';
+import RenewMembershipModal from './modals/RenewMembershipModal';
 
 // Local Relational Storage & SQLite Dump / Excel Service
-import { getLocalDatabase, saveLocalDatabase, exportDatabaseToExcel, generateSqlDump, downloadFile } from './services/db';
+import { 
+  getLocalDatabase, 
+  saveLocalDatabase, 
+  exportDatabaseToExcel, 
+  generateSqlDump, 
+  downloadFile,
+  importDatabaseFromExcel,
+  importDatabaseFromJson
+} from './services/db';
 import { performHybridSync, pushLocalToSupabase, getLastSyncTime } from './services/syncService';
 import { playScannerBeep } from './utils/audio';
+import { getComputedMemberStatus } from './utils/statusHelper';
 
 export default function App() {
   const [members, setMembers] = useState(() => getLocalDatabase());
-  const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'members' | 'payments' | 'alerts'
+  const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'members' | 'payments' | 'scanner' | 'alerts'
   const [soundEnabled, setSoundEnabled] = useState(true);
 
   // Hybrid Cloud Sync State (Supabase + Local Storage)
@@ -37,6 +48,8 @@ export default function App() {
   const [editingMember, setEditingMember] = useState(null);
   const [showRecordPayment, setShowRecordPayment] = useState(false);
   const [preselectedPaymentMember, setPreselectedPaymentMember] = useState(null);
+  const [showRenewMember, setShowRenewMember] = useState(false);
+  const [preselectedRenewMember, setPreselectedRenewMember] = useState(null);
   const [selectedMemberDetail, setSelectedMemberDetail] = useState(null);
   const [activeReceipt, setActiveReceipt] = useState(null);
   const [activeWhatsAppModalData, setActiveWhatsAppModalData] = useState(null);
@@ -305,6 +318,135 @@ export default function App() {
     });
   };
 
+  // Open Renew Plan Modal
+  const handleOpenRenew = (member = null) => {
+    setPreselectedRenewMember(member);
+    setShowRenewMember(true);
+  };
+
+  // Process Plan Renewal
+  const handleRenewMember = (renewalData) => {
+    const targetMember = members.find(m => m.id === renewalData.memberId);
+    if (!targetMember) return;
+
+    const renewalFee = Number(renewalData.renewalFee || 0);
+    const paidNow = Number(renewalData.paidNow || 0);
+    const existingTotal = Number(targetMember.totalFee || 0);
+    const existingPaid = Number(targetMember.paidAmount || 0);
+    const existingPending = Number(targetMember.pendingAmount || 0);
+
+    const newTotalFee = existingTotal + renewalFee;
+    const newPaidAmount = existingPaid + paidNow;
+    const newPendingAmount = Math.max(0, existingPending + renewalFee - paidNow);
+
+    const updated = members.map(m => {
+      if (m.id === renewalData.memberId) {
+        const history = [...(m.paymentHistory || [])];
+        if (paidNow > 0) {
+          history.unshift({
+            receiptId: renewalData.receiptId,
+            date: renewalData.paymentDate,
+            amount: paidNow,
+            mode: renewalData.paymentMode,
+            utr: renewalData.utr,
+            package: `Renewal - ${renewalData.packageName}`,
+            status: 'Success'
+          });
+        }
+
+        return {
+          ...m,
+          packageId: renewalData.packageId,
+          packageName: renewalData.packageName,
+          startDate: renewalData.startDate,
+          expiryDate: renewalData.expiryDate,
+          totalFee: newTotalFee,
+          paidAmount: newPaidAmount,
+          pendingAmount: newPendingAmount,
+          status: newPendingAmount === 0 ? 'Active' : 'Overdue',
+          paymentHistory: history
+        };
+      }
+      return m;
+    });
+
+    updateMembersState(updated);
+    setShowRenewMember(false);
+    setPreselectedRenewMember(null);
+
+    if (soundEnabled && paidNow > 0) playScannerBeep('coin');
+
+    showPushNotice({
+      title: 'Membership Plan Renewed',
+      message: `${targetMember.name} renewed with ${renewalData.packageName} until ${renewalData.expiryDate}.`,
+      icon: '🔄'
+    });
+
+    if (paidNow > 0) {
+      setActiveReceipt({
+        receiptId: renewalData.receiptId,
+        memberId: targetMember.id,
+        memberName: targetMember.name,
+        amount: paidNow,
+        mode: renewalData.paymentMode,
+        utr: renewalData.utr,
+        package: `Renewal - ${renewalData.packageName}`,
+        date: renewalData.paymentDate,
+        totalFee: newTotalFee,
+        pendingAmount: newPendingAmount
+      });
+    }
+  };
+
+  // Delete / Remove member permanently
+  const handleDeleteMember = (memberId) => {
+    const target = members.find(m => m.id === memberId);
+    const updated = members.filter(m => m.id !== memberId);
+    updateMembersState(updated);
+    if (selectedMemberDetail?.id === memberId) {
+      setSelectedMemberDetail(null);
+    }
+    showPushNotice({
+      title: 'Member Removed',
+      message: `${target?.name || 'Member'} (${memberId}) has been removed from database.`,
+      icon: '🗑️'
+    });
+  };
+
+  // Restore database from Excel or JSON file
+  const handleImportDatabase = async (file) => {
+    try {
+      showPushNotice({
+        title: 'Restoring Database',
+        message: 'Parsing backup file...',
+        icon: '⏳'
+      });
+      let imported = [];
+      if (file.name.toLowerCase().endsWith('.json')) {
+        imported = await importDatabaseFromJson(file);
+      } else {
+        imported = await importDatabaseFromExcel(file);
+      }
+      if (Array.isArray(imported)) {
+        updateMembersState(imported);
+        showPushNotice({
+          title: 'Database Restored',
+          message: `Successfully loaded ${imported.length} member accounts and records.`,
+          icon: '📥'
+        });
+        if (soundEnabled) playScannerBeep('success');
+      }
+    } catch (err) {
+      console.error('Import failed:', err);
+      showPushNotice({
+        title: 'Restore Failed',
+        message: err.message || 'Could not parse backup file. Please check file format.',
+        icon: '⚠️',
+        type: 'error'
+      });
+    }
+  };
+
   // Export structured Excel Database (.xlsx) to client laptop
   const handleExportExcel = () => {
     try {
@@ -325,7 +467,10 @@ export default function App() {
     }
   };
 
-  const overdueOrExpiringCount = members.filter(m => m.status === 'Expiring' || m.status === 'Overdue').length;
+  const overdueOrExpiringCount = members.filter(m => {
+    const s = getComputedMemberStatus(m);
+    return s === 'Expiring' || s === 'Overdue' || s === 'Expired';
+  }).length;
 
   return (
     <DesktopLayout
@@ -343,6 +488,7 @@ export default function App() {
       onOpenWhatsApp={(m) => setActiveWhatsAppModalData(m)}
       onExportExcel={handleExportExcel}
       onExportSql={handleExportExcel}
+      onImportDatabase={handleImportDatabase}
       unreadAlertsCount={overdueOrExpiringCount}
       syncState={{
         status: syncStatus,
@@ -370,6 +516,7 @@ export default function App() {
           onOpenAddMember={() => { setEditingMember(null); setShowAddMember(true); }}
           onEditMember={(m) => { setEditingMember(m); setShowAddMember(true); }}
           onOpenWhatsApp={(m) => setActiveWhatsAppModalData(m)}
+          onRenewMember={(m) => handleOpenRenew(m)}
         />
       )}
 
@@ -380,6 +527,20 @@ export default function App() {
           onOpenMemberDetail={(m) => setSelectedMemberDetail(m)}
           onViewReceipt={(rec) => setActiveReceipt(rec)}
           onShareWhatsApp={(rec) => setActiveWhatsAppModalData(rec)}
+        />
+      )}
+
+      {activeTab === 'scanner' && (
+        <AdminScanner
+          members={members}
+          soundEnabled={soundEnabled}
+          onLogCheckIn={(m) => {
+            showPushNotice({
+              title: 'Member Checked In',
+              message: `${m.name} (${m.id}) entered gym premises.`,
+              icon: '🚪'
+            });
+          }}
         />
       )}
 
@@ -410,6 +571,16 @@ export default function App() {
           preselectedMember={preselectedPaymentMember}
           onClose={() => { setShowRecordPayment(false); setPreselectedPaymentMember(null); }}
           onRecordPayment={handleRecordPayment}
+          onOpenRenewModal={(m) => handleOpenRenew(m)}
+        />
+      )}
+
+      {showRenewMember && (
+        <RenewMembershipModal
+          members={members}
+          preselectedMember={preselectedRenewMember}
+          onClose={() => { setShowRenewMember(false); setPreselectedRenewMember(null); }}
+          onRenewMember={handleRenewMember}
         />
       )}
 
@@ -428,6 +599,11 @@ export default function App() {
             setPreselectedPaymentMember(m);
             setShowRecordPayment(true);
           }}
+          onRenewPlan={(m) => {
+            setSelectedMemberDetail(null);
+            handleOpenRenew(m);
+          }}
+          onDeleteMember={(id) => handleDeleteMember(id)}
           onOpenWhatsApp={(m) => {
             setSelectedMemberDetail(null);
             setActiveWhatsAppModalData(m);

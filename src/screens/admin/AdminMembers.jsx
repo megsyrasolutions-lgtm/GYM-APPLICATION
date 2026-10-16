@@ -12,15 +12,18 @@ import {
   Clock,
   AlertTriangle,
   UserX,
-  Edit3
+  Edit3,
+  RefreshCw
 } from 'lucide-react';
+import { getComputedMemberStatus, getDaysRemaining } from '../../utils/statusHelper';
 
 export default function AdminMembers({ 
   members = [], 
   onSelectMember, 
   onOpenAddMember, 
   onEditMember,
-  onOpenWhatsApp 
+  onOpenWhatsApp,
+  onRenewMember
 }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
@@ -36,11 +39,14 @@ export default function AdminMembers({
       (member.phone && member.phone.includes(query)) ||
       (member.email && member.email.toLowerCase().includes(query));
 
+    const computedStatus = getComputedMemberStatus(member);
+
     const matchesStatus = 
       statusFilter === 'ALL' || 
-      (statusFilter === 'OVERDUE' ? (member.pendingAmount > 0 || member.status === 'Overdue') : 
-       statusFilter === 'ACTIVE' ? (member.status === 'Active' && (!member.pendingAmount || member.pendingAmount === 0)) :
-       (member.status && member.status.toUpperCase() === statusFilter));
+      (statusFilter === 'ACTIVE' && computedStatus === 'Active') ||
+      (statusFilter === 'EXPIRING' && computedStatus === 'Expiring') ||
+      (statusFilter === 'OVERDUE' && (computedStatus === 'Overdue' || computedStatus === 'Expired')) ||
+      (statusFilter === 'INACTIVE' && computedStatus === 'Inactive');
 
     return matchesSearch && matchesStatus;
   }).sort((a, b) => {
@@ -51,28 +57,34 @@ export default function AdminMembers({
     return 0;
   });
 
-  const getStatusBadge = (status, pendingAmount = 0) => {
-    if (pendingAmount > 0 || status === 'Overdue') {
-      return { className: 'badge-overdue', label: 'Fee Due', icon: AlertTriangle };
-    }
-    switch (status) {
+  const getStatusBadge = (member) => {
+    const computedStatus = getComputedMemberStatus(member);
+    const days = getDaysRemaining(member?.expiryDate);
+
+    switch (computedStatus) {
       case 'Active':
         return { className: 'badge-active', label: 'Active (Paid)', icon: CheckCircle };
       case 'Expiring':
-        return { className: 'badge-expiring', label: 'Expiring ≤7d', icon: Clock };
+        return { className: 'badge-expiring', label: `Expiring (≤${days ?? 7}d)`, icon: Clock };
+      case 'Expired':
+        return { className: 'badge-overdue', label: 'Plan Expired', icon: AlertTriangle };
+      case 'Overdue':
+        return { className: 'badge-overdue', label: 'Fee Due', icon: AlertTriangle };
       case 'Inactive':
-        return { className: 'badge-inactive', label: 'Inactive', icon: UserX };
       default:
-        return { className: 'badge-inactive', label: status || 'Member', icon: CheckCircle };
+        return { className: 'badge-inactive', label: 'Inactive', icon: UserX };
     }
   };
 
   const statusCounts = {
     ALL: members.length,
-    ACTIVE: members.filter(m => m.status === 'Active' && (!m.pendingAmount || m.pendingAmount === 0)).length,
-    EXPIRING: members.filter(m => m.status === 'Expiring').length,
-    OVERDUE: members.filter(m => (m.pendingAmount > 0 || m.status === 'Overdue')).length,
-    INACTIVE: members.filter(m => m.status === 'Inactive').length
+    ACTIVE: members.filter(m => getComputedMemberStatus(m) === 'Active').length,
+    EXPIRING: members.filter(m => getComputedMemberStatus(m) === 'Expiring').length,
+    OVERDUE: members.filter(m => {
+      const s = getComputedMemberStatus(m);
+      return s === 'Overdue' || s === 'Expired';
+    }).length,
+    INACTIVE: members.filter(m => getComputedMemberStatus(m) === 'Inactive').length
   };
 
   return (
@@ -290,7 +302,7 @@ export default function AdminMembers({
                   </tr>
                 ) : (
                   filteredMembers.map((member) => {
-                    const badge = getStatusBadge(member.status, member.pendingAmount);
+                    const badge = getStatusBadge(member);
                     const initials = member.name
                       ? member.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
                       : 'BL';
@@ -415,6 +427,33 @@ export default function AdminMembers({
                               <span>View</span>
                             </button>
 
+                            {onRenewMember && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onRenewMember(member);
+                                }}
+                                className="tap-btn"
+                                title="Renew membership plan"
+                                style={{
+                                  padding: '5px 10px',
+                                  borderRadius: '6px',
+                                  border: '1px solid #BFDBFE',
+                                  background: '#EFF6FF',
+                                  color: '#1D4ED8',
+                                  fontSize: '11.5px',
+                                  fontWeight: '700',
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
+                                }}
+                              >
+                                <RefreshCw size={12} />
+                                <span>Renew</span>
+                              </button>
+                            )}
+
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -425,9 +464,9 @@ export default function AdminMembers({
                               style={{
                                 padding: '5px 10px',
                                 borderRadius: '6px',
-                                border: '1px solid #BFDBFE',
-                                background: '#EFF6FF',
-                                color: '#1D4ED8',
+                                border: '1px solid #E2E8F0',
+                                background: '#F8FAFC',
+                                color: '#334155',
                                 fontSize: '11.5px',
                                 fontWeight: '700',
                                 cursor: 'pointer',
@@ -475,7 +514,7 @@ export default function AdminMembers({
         /* Grid Card View */
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '14px' }}>
           {filteredMembers.map(member => {
-            const badge = getStatusBadge(member.status, member.pendingAmount);
+            const badge = getStatusBadge(member);
             const initials = member.name
               ? member.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
               : 'BL';
@@ -563,6 +602,32 @@ export default function AdminMembers({
                   >
                     View
                   </button>
+                  {onRenewMember && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onRenewMember(member);
+                      }}
+                      className="tap-btn"
+                      title="Renew Plan"
+                      style={{
+                        padding: '7px 8px',
+                        borderRadius: '6px',
+                        border: '1px solid #BFDBFE',
+                        background: '#EFF6FF',
+                        color: '#1D4ED8',
+                        fontSize: '11.5px',
+                        fontWeight: '700',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <RefreshCw size={12} />
+                      <span>Renew</span>
+                    </button>
+                  )}
                   <button
                     onClick={() => onEditMember && onEditMember(member)}
                     className="tap-btn"

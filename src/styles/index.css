@@ -420,3 +420,50 @@ button, input, select, textarea {
   animation: spin 1s linear infinite;
 }
 
+/* ========================================================
+   Print Media Styles (Thermal POS & Paper Receipts)
+   ======================================================== */
+@media print {
+  body, html {
+    background: #FFFFFF !important;
+    overflow: visible !important;
+    height: auto !important;
+    width: 100% !important;
+  }
+
+  /* Hide everything except the receipt */
+  .desktop-sidebar,
+  .desktop-header,
+  .no-print,
+  button,
+  .tap-btn {
+    display: none !important;
+  }
+
+  .modal-backdrop {
+    position: static !important;
+    background: transparent !important;
+    padding: 0 !important;
+    display: block !important;
+  }
+
+  .desktop-modal-dialog {
+    box-shadow: none !important;
+    border: none !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 auto !important;
+    background: transparent !important;
+  }
+
+  #printable-voucher {
+    border: 1.5px solid #0F172A !important;
+    max-width: 420px !important;
+    margin: 10px auto !important;
+    box-shadow: none !important;
+    padding: 16px !important;
+    page-break-inside: avoid !important;
+  }
+}
+

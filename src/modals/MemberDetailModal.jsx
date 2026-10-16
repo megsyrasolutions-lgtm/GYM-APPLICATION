@@ -1,5 +1,20 @@
-import React from 'react';
-import { X, MessageSquare, Edit3, UserX, UserCheck, CreditCard, Calendar, FileText, ChevronRight, CheckCircle2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { 
+  X, 
+  MessageSquare, 
+  Edit3, 
+  UserX, 
+  UserCheck, 
+  CreditCard, 
+  Calendar, 
+  FileText, 
+  ChevronRight, 
+  CheckCircle2, 
+  RefreshCw, 
+  Trash2, 
+  AlertTriangle 
+} from 'lucide-react';
+import { getComputedMemberStatus, getDaysRemaining, getStatusBadgeConfig } from '../utils/statusHelper';
 
 export default function MemberDetailModal({ 
   member, 
@@ -7,40 +22,62 @@ export default function MemberDetailModal({
   onEdit, 
   onToggleStatus, 
   onCollectPayment, 
+  onRenewPlan,
+  onDeleteMember,
   onOpenWhatsApp,
   onViewReceipt
 }) {
   if (!member) return null;
 
-  const isExpiring = member.status === 'Expiring';
-  const isOverdue = member.status === 'Overdue';
-  const isInactive = member.status === 'Inactive';
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const computedStatus = getComputedMemberStatus(member);
+  const badgeConfig = getStatusBadgeConfig(computedStatus);
+  const daysRemaining = getDaysRemaining(member.expiryDate);
+
+  const pendingAmount = Number(member.pendingAmount || 0);
+  const totalFee = Number(member.totalFee || 0);
+  const paidAmount = Number(member.paidAmount || 0);
+
+  const getDaysRemainingText = () => {
+    if (daysRemaining === null) return 'No expiry date set';
+    if (daysRemaining < 0) return `Expired ${Math.abs(daysRemaining)} days ago`;
+    if (daysRemaining === 0) return 'Expires today';
+    if (daysRemaining === 1) return 'Expires tomorrow';
+    return `${daysRemaining} days remaining`;
+  };
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div 
         className="desktop-modal-dialog" 
         onClick={(e) => e.stopPropagation()}
-        style={{ maxWidth: '600px' }}
+        style={{ maxWidth: '620px', maxHeight: '92vh', overflowY: 'auto' }}
       >
         {/* Top Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '10px' }}>
-          <span style={{ 
-            fontSize: '11px', 
-            fontWeight: '800', 
-            padding: '4px 10px', 
-            borderRadius: '999px',
-            background: isInactive ? '#F3F4F6' : isOverdue ? '#FFF0EB' : isExpiring ? '#FEF3C7' : '#ECFDF5',
-            color: isInactive ? '#6B7280' : isOverdue ? '#EA580C' : isExpiring ? '#D97706' : '#047857',
-            letterSpacing: '0.5px'
-          }}>
-            {member.status.toUpperCase()}
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ 
+              fontSize: '11px', 
+              fontWeight: '800', 
+              padding: '4px 10px', 
+              borderRadius: '999px',
+              background: badgeConfig.bg,
+              color: badgeConfig.color,
+              border: `1px solid ${badgeConfig.border}`,
+              letterSpacing: '0.5px'
+            }}>
+              {badgeConfig.label.toUpperCase()}
+            </span>
+            <span style={{ fontSize: '11.5px', color: '#64748B', fontWeight: '600' }}>
+              ({getDaysRemainingText()})
+            </span>
+          </div>
 
           <button 
             onClick={onClose}
             className="tap-btn"
-            style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#F3F4F6', border: 'none', color: '#6B7280', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#F3F4F6', border: 'none', color: '#6B7280', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
           >
             <X size={18} />
           </button>
@@ -81,234 +118,289 @@ export default function MemberDetailModal({
                 {member.id}
               </span>
               <span style={{ fontSize: '12px', color: '#6B7280' }}>{member.gender}, {member.age}y</span>
+              {member.lockerNumber && (
+                <span style={{ fontSize: '11px', color: '#047857', background: '#ECFDF5', padding: '2px 6px', borderRadius: '4px', fontWeight: '700' }}>
+                  Locker #{member.lockerNumber}
+                </span>
+              )}
             </div>
-            <p style={{ fontSize: '12px', color: '#6B7280', marginTop: '3px' }}>{member.phone} {member.email ? `· ${member.email}` : ''}</p>
+            <p style={{ fontSize: '12px', color: '#6B7280', marginTop: '3px' }}>
+              {member.phone} {member.email ? `· ${member.email}` : ''}
+            </p>
           </div>
         </div>
 
         {/* Quick Contact & Action Buttons */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '10px' }}>
+          
+          {/* WhatsApp Button */}
           <button 
             onClick={() => onOpenWhatsApp && onOpenWhatsApp(member)}
             className="tap-btn"
             style={{
               background: '#25D366',
-              borderRadius: '12px',
-              padding: '12px 14px',
+              borderRadius: '10px',
+              padding: '10px 12px',
               color: '#FFFFFF',
-              fontSize: '13px',
+              fontSize: '12.5px',
               fontWeight: '700',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '8px',
+              gap: '6px',
               border: 'none',
               boxShadow: '0 2px 8px rgba(37, 211, 102, 0.25)',
               cursor: 'pointer'
             }}
           >
-            <MessageSquare size={17} />
+            <MessageSquare size={16} />
             <span>WhatsApp Notice</span>
           </button>
 
-          {member.pendingAmount > 0 ? (
+          {/* Renew Plan Button */}
+          <button
+            onClick={() => onRenewPlan && onRenewPlan(member)}
+            className="tap-btn"
+            style={{
+              background: '#EFF6FF',
+              borderRadius: '10px',
+              padding: '10px 12px',
+              color: '#1D4ED8',
+              fontSize: '12.5px',
+              fontWeight: '700',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              border: '1.5px solid #BFDBFE',
+              cursor: 'pointer'
+            }}
+          >
+            <RefreshCw size={16} />
+            <span>Renew Plan</span>
+          </button>
+
+          {/* Collect Payment (if pending) */}
+          {pendingAmount > 0 && (
             <button 
               onClick={() => onCollectPayment && onCollectPayment(member)}
               className="tap-btn"
               style={{
                 background: '#FFF5F2',
-                borderRadius: '12px',
-                padding: '12px 14px',
+                borderRadius: '10px',
+                padding: '10px 12px',
                 color: '#C2410C',
-                fontSize: '13px',
+                fontSize: '12.5px',
                 fontWeight: '700',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: '8px',
-                border: '1px solid rgba(255, 122, 89, 0.2)',
+                gap: '6px',
+                border: '1px solid rgba(255, 122, 89, 0.3)',
                 cursor: 'pointer'
               }}
             >
-              <CreditCard size={17} color="#FF7A59" />
-              <span>Collect Payment (₹{member.pendingAmount.toLocaleString()})</span>
+              <CreditCard size={16} color="#FF7A59" />
+              <span>Collect Dues (₹{pendingAmount.toLocaleString()})</span>
             </button>
+          )}
+
+        </div>
+
+        {/* Membership Details Card */}
+        <div className="mint-card" style={{ padding: '16px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '10px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <span style={{ fontSize: '11px', color: '#64748B', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              Active Subscription
+            </span>
+            <span style={{ fontSize: '12px', fontWeight: '800', color: '#2563EB' }}>
+              {member.packageName}
+            </span>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', paddingTop: '8px', borderTop: '1px solid #E2E8F0', textAlign: 'center' }}>
+            <div>
+              <span style={{ fontSize: '10.5px', color: '#64748B', display: 'block', textTransform: 'uppercase' }}>Total Billed</span>
+              <strong style={{ fontSize: '14px', color: '#0F172A' }}>₹{totalFee.toLocaleString()}</strong>
+            </div>
+            <div>
+              <span style={{ fontSize: '10.5px', color: '#64748B', display: 'block', textTransform: 'uppercase' }}>Paid</span>
+              <strong style={{ fontSize: '14px', color: '#059669' }}>₹{paidAmount.toLocaleString()}</strong>
+            </div>
+            <div>
+              <span style={{ fontSize: '10.5px', color: '#64748B', display: 'block', textTransform: 'uppercase' }}>Balance Due</span>
+              <strong style={{ fontSize: '14px', color: pendingAmount > 0 ? '#DC2626' : '#059669' }}>
+                ₹{pendingAmount.toLocaleString()}
+              </strong>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '12px', paddingTop: '10px', borderTop: '1px solid #E2E8F0', fontSize: '12px', color: '#475569' }}>
+            <span><strong>Start Date:</strong> {member.startDate || 'N/A'}</span>
+            <span><strong>Expiry Date:</strong> {member.expiryDate || 'N/A'}</span>
+          </div>
+        </div>
+
+        {/* Payment History Receipts */}
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <h4 style={{ fontSize: '13px', fontWeight: '800', color: '#0F172A', margin: 0 }}>
+              Payment Receipts History ({member.paymentHistory?.length || 0})
+            </h4>
+          </div>
+
+          {(!member.paymentHistory || member.paymentHistory.length === 0) ? (
+            <p style={{ fontSize: '12px', color: '#94A3B8', fontStyle: 'italic', margin: 0, padding: '10px 0' }}>
+              No payments recorded for this member yet.
+            </p>
           ) : (
-            <div
-              style={{
-                background: '#F0FDF4',
-                borderRadius: '12px',
-                padding: '12px 14px',
-                color: '#166534',
-                fontSize: '13px',
-                fontWeight: '700',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                border: '1px solid #BBF7D0'
-              }}
-            >
-              <CheckCircle2 size={17} color="#16A34A" />
-              <span>Bill Fully Paid</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '160px', overflowY: 'auto' }}>
+              {member.paymentHistory.map((p, idx) => (
+                <div 
+                  key={p.receiptId || idx}
+                  style={{
+                    background: '#FFFFFF',
+                    border: '1px solid #E2E8F0',
+                    borderRadius: '8px',
+                    padding: '8px 12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    fontSize: '12px'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <FileText size={15} color="#2563EB" />
+                    <div>
+                      <strong style={{ color: '#0F172A' }}>₹{Number(p.amount || 0).toLocaleString()}</strong>
+                      <span style={{ color: '#64748B', marginLeft: '6px' }}>({p.mode || 'Cash'}) · {p.date}</span>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '11px', fontFamily: 'monospace', color: '#64748B' }}>
+                      {p.receiptId}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => onViewReceipt && onViewReceipt({ ...p, memberName: member.name, memberId: member.id, package: member.packageName, pendingAmount: member.pendingAmount })}
+                      className="tap-btn"
+                      style={{ padding: '3px 8px', borderRadius: '4px', border: '1px solid #CBD5E1', background: '#F8FAFC', fontSize: '11px', fontWeight: '600', cursor: 'pointer' }}
+                    >
+                      View Receipt
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>
 
-        {/* Membership Details Card */}
-        <div className="mint-card" style={{ padding: '16px', background: '#F9FAFB' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <span style={{ fontSize: '11px', color: '#6B7280', textTransform: 'uppercase', fontWeight: '700' }}>Membership Package</span>
-            <span style={{ fontSize: '13.5px', fontWeight: '800', color: '#047857' }}>{member.packageName}</span>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', padding: '10px 0', borderTop: '1px solid #E5E7EB', borderBottom: '1px solid #E5E7EB' }}>
-            <div>
-              <p style={{ fontSize: '11px', color: '#6B7280', margin: 0 }}>Enrolled Date</p>
-              <p style={{ fontSize: '13px', fontWeight: '700', color: '#111827', margin: '2px 0 0' }}>{member.startDate}</p>
+        {/* Delete Confirmation Alert Banner */}
+        {confirmDelete && (
+          <div style={{
+            background: '#FEF2F2',
+            border: '1.5px solid #FECACA',
+            borderRadius: '10px',
+            padding: '12px 14px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#B91C1C' }}>
+              <AlertTriangle size={18} color="#DC2626" />
+              <strong style={{ fontSize: '13px' }}>Delete {member.name}'s record permanently?</strong>
             </div>
-            <div style={{ textAlign: 'right' }}>
-              <p style={{ fontSize: '11px', color: '#6B7280', margin: 0 }}>Expiry Date</p>
-              <p style={{ fontSize: '13px', fontWeight: '800', color: isExpiring ? '#D97706' : '#111827', margin: '2px 0 0' }}>{member.expiryDate}</p>
-            </div>
-          </div>
-
-          {/* Dues & Financials */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
-            <div>
-              <p style={{ fontSize: '11px', color: '#6B7280', margin: 0 }}>Billing Balance</p>
-              <p style={{ fontSize: '15px', fontWeight: '800', color: member.pendingAmount > 0 ? '#EA580C' : '#047857', margin: '2px 0 0' }}>
-                {member.pendingAmount > 0 ? `Pending ₹${member.pendingAmount.toLocaleString()}` : 'Fully Paid'}
-              </p>
-            </div>
-
-            {member.pendingAmount > 0 ? (
-              <button
-                onClick={() => onCollectPayment && onCollectPayment(member)}
-                className="tap-btn btn-coral"
-                style={{ padding: '8px 14px', fontSize: '12px', cursor: 'pointer' }}
-              >
-                <CreditCard size={14} />
-                Collect ₹{member.pendingAmount.toLocaleString()}
-              </button>
-            ) : (
-              <span style={{
-                fontSize: '11.5px',
-                fontWeight: '700',
-                color: '#065F46',
-                background: '#ECFDF5',
-                padding: '6px 12px',
-                borderRadius: '6px',
-                border: '1px solid #A7F3D0',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px'
-              }}>
-                <CheckCircle2 size={13} color="#059669" />
-                <span>✓ Cleared & Settled</span>
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Vital Info Grid: Locker, Total Fee, Paid */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
-          <div style={{ background: '#F9FAFB', borderRadius: '14px', padding: '10px', textAlign: 'center' }}>
-            <p style={{ fontSize: '10.5px', color: '#6B7280', margin: 0 }}>Locker Allocated</p>
-            <p style={{ fontSize: '13.5px', fontWeight: '800', color: '#111827', marginTop: '3px' }}>{member.lockerNumber || 'Unassigned'}</p>
-          </div>
-          <div style={{ background: '#ECFDF5', borderRadius: '14px', padding: '10px', textAlign: 'center' }}>
-            <p style={{ fontSize: '10.5px', color: '#047857', margin: 0 }}>Total Paid</p>
-            <p style={{ fontSize: '13.5px', fontWeight: '800', color: '#047857', marginTop: '3px' }}>₹{member.paidAmount.toLocaleString()}</p>
-          </div>
-          <div style={{ background: member.pendingAmount > 0 ? '#FFF7F5' : '#F9FAFB', borderRadius: '14px', padding: '10px', textAlign: 'center' }}>
-            <p style={{ fontSize: '10.5px', color: member.pendingAmount > 0 ? '#EA580C' : '#6B7280', margin: 0 }}>Pending Dues</p>
-            <p style={{ fontSize: '13.5px', fontWeight: '800', color: member.pendingAmount > 0 ? '#EA580C' : '#6B7280', marginTop: '3px' }}>
-              {member.pendingAmount > 0 ? `₹${member.pendingAmount.toLocaleString()}` : 'Cleared'}
+            <p style={{ fontSize: '12px', color: '#7F1D1D', margin: 0 }}>
+              This will remove the member from your local database and unregister all fee records for this client.
             </p>
-          </div>
-        </div>
-
-        {/* Receipts List */}
-        <div>
-          <h4 style={{ fontSize: '13.5px', fontWeight: '800', color: '#111827', marginBottom: '8px' }}>
-            Payment Receipts Ledger ({member.paymentHistory.length})
-          </h4>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            {member.paymentHistory.map((rec, idx) => (
-              <div 
-                key={idx}
-                onClick={() => onViewReceipt && onViewReceipt({ ...rec, memberName: member.name, memberId: member.id, totalFee: member.totalFee, pendingAmount: member.pendingAmount })}
-                className="tap-btn"
-                style={{
-                  background: '#F9FAFB',
-                  border: '1px solid #E5E7EB',
-                  borderRadius: '12px',
-                  padding: '9px 12px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between'
-                }}
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '4px' }}>
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(false)}
+                className="tap-btn btn-secondary"
+                style={{ padding: '6px 12px', fontSize: '12px' }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <FileText size={16} color="#10B981" />
-                  <div>
-                    <p style={{ fontSize: '12px', fontWeight: '700', color: '#111827', margin: 0 }}>{rec.receiptId}</p>
-                    <p style={{ fontSize: '10.5px', color: '#6B7280', margin: 0 }}>{rec.date} · {rec.mode}</p>
-                  </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ fontSize: '12.5px', fontWeight: '800', color: '#047857' }}>₹{rec.amount.toLocaleString()}</span>
-                  <ChevronRight size={14} color="#9CA3AF" />
-                </div>
-              </div>
-            ))}
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (onDeleteMember) onDeleteMember(member.id);
+                  onClose();
+                }}
+                className="tap-btn"
+                style={{ padding: '6px 14px', fontSize: '12px', background: '#DC2626', color: '#FFFFFF', border: 'none', borderRadius: '6px', fontWeight: '700', cursor: 'pointer' }}
+              >
+                Confirm Delete
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Bottom Operations: Edit / Toggle Status */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '6px' }}>
-          <button 
-            onClick={() => onEdit && onEdit(member)}
-            className="tap-btn btn-secondary"
-            style={{ borderRadius: '999px', fontSize: '12.5px', padding: '10px' }}
-          >
-            <Edit3 size={15} />
-            <span>Edit Profile</span>
-          </button>
+        {/* Bottom Operations: Edit / Toggle Status / Delete */}
+        {!confirmDelete && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '10px', marginTop: '6px' }}>
+            <button 
+              onClick={() => onEdit && onEdit(member)}
+              className="tap-btn btn-secondary"
+              style={{ borderRadius: '8px', fontSize: '12.5px', padding: '9px 12px' }}
+            >
+              <Edit3 size={15} />
+              <span>Edit Profile</span>
+            </button>
 
-          <button 
-            onClick={() => onToggleStatus && onToggleStatus(member.id)}
-            className="tap-btn"
-            style={{
-              borderRadius: '999px',
-              padding: '10px',
-              fontSize: '12.5px',
-              fontWeight: '700',
-              border: 'none',
-              background: member.status === 'Inactive' ? '#ECFDF5' : '#FFF0EB',
-              color: member.status === 'Inactive' ? '#047857' : '#EA580C',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '6px',
-              cursor: 'pointer'
-            }}
-          >
-            {member.status === 'Inactive' ? (
-              <>
-                <UserCheck size={16} />
-                <span>Mark as Active</span>
-              </>
-            ) : (
-              <>
-                <UserX size={16} />
-                <span>Deactivate User</span>
-              </>
-            )}
-          </button>
-        </div>
+            <button 
+              onClick={() => onToggleStatus && onToggleStatus(member.id)}
+              className="tap-btn"
+              style={{
+                borderRadius: '8px',
+                padding: '9px 12px',
+                fontSize: '12.5px',
+                fontWeight: '700',
+                border: 'none',
+                background: member.status === 'Inactive' ? '#ECFDF5' : '#FFF0EB',
+                color: member.status === 'Inactive' ? '#047857' : '#EA580C',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                cursor: 'pointer'
+              }}
+            >
+              {member.status === 'Inactive' ? (
+                <>
+                  <UserCheck size={15} />
+                  <span>Mark Active</span>
+                </>
+              ) : (
+                <>
+                  <UserX size={15} />
+                  <span>Deactivate</span>
+                </>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setConfirmDelete(true)}
+              className="tap-btn"
+              title="Delete Member Record"
+              style={{
+                borderRadius: '8px',
+                padding: '9px 12px',
+                border: '1px solid #FECACA',
+                background: '#FEF2F2',
+                color: '#DC2626',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer'
+              }}
+            >
+              <Trash2 size={16} />
+            </button>
+          </div>
+        )}
 
       </div>
     </div>
