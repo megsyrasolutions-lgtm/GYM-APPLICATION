@@ -12,7 +12,20 @@
     <link href="https://fonts.googleapis.com/css2?family=Urbanist:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,600;1,700&display=swap" rel="stylesheet" />
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- High-Performance Pre-hydration Shell (Replaced by React on mount) -->
+      <div style="position:fixed;inset:0;background-color:#F8FAFC;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:'Urbanist',-apple-system,sans-serif;color:#0F172A;z-index:99999;">
+        <div style="width:140px;height:140px;border-radius:30px;background:#FFFFFF;border:1.5px solid #DBEAFE;box-shadow:0 16px 36px -4px rgba(37,99,235,0.12),0 4px 16px rgba(0,0,0,0.04);display:flex;align-items:center;justify-content:center;margin-bottom:24px;">
+          <img src="./bodylife_logo.png" alt="BodyLife" style="width:110px;height:110px;object-fit:contain;border-radius:18px;" />
+        </div>
+        <div style="font-size:28px;font-weight:900;letter-spacing:-0.5px;color:#0F172A;margin-bottom:6px;">
+          BodyLife<span style="color:#2563EB;">.</span>
+        </div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:3px;color:#64748B;text-transform:uppercase;">
+          Gym Management & Fee Tracking System
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

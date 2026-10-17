@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   Bell, 
   Search, 
@@ -15,7 +15,8 @@ import {
   X,
   Cloud,
   CloudOff,
-  RefreshCw
+  RefreshCw,
+  Menu
 } from 'lucide-react';
 import { getComputedMemberStatus } from '../utils/statusHelper';
 
@@ -28,10 +29,60 @@ export default function DesktopHeader({
   onOpenNotifications,
   onOpenWhatsApp,
   unreadAlertsCount = 0,
-  syncState = null
+  syncState = null,
+  isSidebarPinned = false,
+  onToggleSidebar,
+  onMouseEnterSidebar
 }) {
   const [showNotificationsDropdown, setShowNotificationsDropdown] = useState(false);
   const notificationsRef = useRef(null);
+
+  // Quick Global Member Search State
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const searchInputRef = useRef(null);
+  const searchContainerRef = useRef(null);
+
+  // Filter Matching Members for Quick Search
+  const matchingMembers = useMemo(() => {
+    if (!searchQuery.trim()) return [];
+    const q = searchQuery.toLowerCase().trim();
+    return members
+      .filter(m => (m.name && m.name.toLowerCase().includes(q)) || (m.mobile && m.mobile.includes(q)))
+      .slice(0, 6);
+  }, [members, searchQuery]);
+
+  // Global Shortcut: Ctrl+K or / to focus search
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+        setIsSearchFocused(true);
+      }
+      if (e.key === 'Escape') {
+        setIsSearchFocused(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Click outside to dismiss search dropdown
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target)) {
+        setIsSearchFocused(false);
+      }
+    }
+    if (isSearchFocused) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isSearchFocused]);
 
   const formatLastSync = (isoStr) => {
     if (!isoStr) return 'Not synced yet';
@@ -68,7 +119,6 @@ export default function DesktopHeader({
     dashboard: { title: 'Financial Overview', subtitle: 'Live collections, revenue efficiency and pending dues' },
     members: { title: 'Members Directory', subtitle: 'Manage member accounts, packages, and membership status' },
     payments: { title: 'Fee Collections & Ledger', subtitle: 'Official Cash and UPI receipts registered at reception' },
-    scanner: { title: 'Entrance & Gate Scanner', subtitle: 'Real-time check-in, attendance verification, and turnstile gate control' },
     alerts: { title: 'Due Reminders & WhatsApp', subtitle: 'Track overdue fees and dispatch payment reminder notices' }
   };
 
@@ -79,8 +129,32 @@ export default function DesktopHeader({
 
   return (
     <header className="desktop-header">
-      {/* Screen Title */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: '220px' }}>
+      {/* Screen Title & Hover Menu Button */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: '220px' }}>
+        {!isSidebarPinned && (
+          <button
+            onClick={onToggleSidebar}
+            onMouseEnter={onMouseEnterSidebar}
+            className="tap-btn"
+            title="Reveal Menu (Hover or Click)"
+            style={{
+              width: '36px',
+              height: '36px',
+              borderRadius: '8px',
+              border: '1px solid #E2E8F0',
+              background: '#F8FAFC',
+              color: '#1E293B',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              flexShrink: 0,
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <Menu size={18} color="#2563EB" />
+          </button>
+        )}
         <div>
           <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#0F172A', margin: 0 }}>
             {currentMeta.title}
@@ -89,6 +163,204 @@ export default function DesktopHeader({
             {currentMeta.subtitle}
           </p>
         </div>
+      </div>
+
+      {/* Global Quick Member Search */}
+      <div ref={searchContainerRef} className="header-search-wrapper">
+        <div className="header-search-box">
+          <Search size={15} color="#64748B" />
+          <input
+            ref={searchInputRef}
+            type="text"
+            className="header-search-input"
+            placeholder="Quick search member... (Ctrl + K)"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onFocus={() => setIsSearchFocused(true)}
+          />
+          {searchQuery ? (
+            <button
+              type="button"
+              onClick={() => {
+                setSearchQuery('');
+                searchInputRef.current?.focus();
+              }}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: '#94A3B8',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                padding: '2px'
+              }}
+            >
+              <X size={14} />
+            </button>
+          ) : (
+            <span className="header-search-shortcut">Ctrl K</span>
+          )}
+        </div>
+
+        {/* Live Search Dropdown */}
+        {isSearchFocused && searchQuery.trim().length > 0 && (
+          <div className="header-search-dropdown">
+            <div style={{
+              padding: '8px 14px',
+              borderBottom: '1px solid #F1F5F9',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              background: '#F8FAFC'
+            }}>
+              <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                Matching Members ({matchingMembers.length})
+              </span>
+              <span style={{ fontSize: '10.5px', color: '#94A3B8' }}>
+                Press ESC to close
+              </span>
+            </div>
+
+            <div style={{ maxHeight: '320px', overflowY: 'auto' }}>
+              {matchingMembers.length > 0 ? (
+                matchingMembers.map((m) => {
+                  const status = getComputedMemberStatus(m);
+                  const isOverdue = status === 'Overdue' || status === 'Expired';
+                  const isExpiring = status === 'Expiring';
+                  const initials = (m.name || 'M')
+                    .split(' ')
+                    .map(n => n[0])
+                    .slice(0, 2)
+                    .join('')
+                    .toUpperCase();
+
+                  return (
+                    <div
+                      key={m.id}
+                      className="header-search-item"
+                      onClick={() => {
+                        onOpenMemberDetail(m);
+                        setIsSearchFocused(false);
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
+                        <div style={{
+                          width: '32px',
+                          height: '32px',
+                          borderRadius: '8px',
+                          background: isOverdue ? '#FEE2E2' : '#EFF6FF',
+                          color: isOverdue ? '#DC2626' : '#2563EB',
+                          fontWeight: '800',
+                          fontSize: '11px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0
+                        }}>
+                          {initials}
+                        </div>
+                        <div style={{ minWidth: 0 }}>
+                          <p style={{ fontSize: '12.5px', fontWeight: '700', color: '#0F172A', margin: 0 }}>
+                            {m.name}
+                          </p>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px', flexWrap: 'wrap' }}>
+                            <span style={{ fontSize: '11px', color: '#64748B' }}>
+                              {m.mobile || 'No Mobile'}
+                            </span>
+                            <span style={{ fontSize: '10px', color: '#94A3B8' }}>•</span>
+                            <span style={{
+                              fontSize: '10px',
+                              fontWeight: '700',
+                              color: isOverdue ? '#DC2626' : isExpiring ? '#D97706' : '#059669',
+                              background: isOverdue ? '#FEF2F2' : isExpiring ? '#FEF3C7' : '#ECFDF5',
+                              padding: '1px 5px',
+                              borderRadius: '4px'
+                            }}>
+                              {status}
+                            </span>
+                            {m.pendingAmount > 0 && (
+                              <span style={{ fontSize: '11px', color: '#DC2626', fontWeight: '800' }}>
+                                ₹{m.pendingAmount.toLocaleString()} due
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Quick Actions */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0, marginLeft: '8px' }} onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onOpenRecordPayment(m);
+                            setIsSearchFocused(false);
+                          }}
+                          className="tap-btn"
+                          title="Collect Fee / Record Payment"
+                          style={{
+                            padding: '4px 8px',
+                            borderRadius: '6px',
+                            background: '#EFF6FF',
+                            border: '1px solid #BFDBFE',
+                            color: '#1D4ED8',
+                            fontSize: '11px',
+                            fontWeight: '700',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <CreditCard size={12} color="#2563EB" />
+                          <span>Pay</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onOpenMemberDetail(m);
+                            setIsSearchFocused(false);
+                          }}
+                          className="tap-btn"
+                          title="View Full Profile"
+                          style={{
+                            padding: '4px 8px',
+                            borderRadius: '6px',
+                            background: '#FFFFFF',
+                            border: '1px solid #E2E8F0',
+                            color: '#334155',
+                            fontSize: '11px',
+                            fontWeight: '600',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Profile
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div style={{ padding: '24px 16px', textAlign: 'center' }}>
+                  <p style={{ fontSize: '12.5px', color: '#64748B', margin: '0 0 10px' }}>
+                    No member found matching "{searchQuery}"
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onOpenAddMember();
+                      setIsSearchFocused(false);
+                    }}
+                    className="tap-btn btn-primary"
+                    style={{ fontSize: '11.5px', padding: '6px 12px' }}
+                  >
+                    <Plus size={13} />
+                    <span>Enroll as New Member</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Right Stats & Action Buttons */}

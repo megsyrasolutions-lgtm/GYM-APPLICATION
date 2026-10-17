@@ -1,6 +1,6 @@
-import React, { useState, useRef } from 'react';
-import { X, UserPlus, Upload, Trash2, Camera, Check, AlertCircle } from 'lucide-react';
-import { DEFAULT_PACKAGES } from '../services/db';
+import React, { useState, useRef, useEffect } from 'react';
+import { X, UserPlus, Upload, Trash2, Camera, Check, AlertCircle, Dumbbell, HeartPulse, Video, VideoOff } from 'lucide-react';
+import { DEFAULT_PACKAGES, DEFAULT_ADMISSION_FEE } from '../services/db';
 
 export default function AddMemberModal({ 
   onClose, 
@@ -10,16 +10,30 @@ export default function AddMemberModal({
 }) {
   const isEditing = !!editingMember;
   const fileInputRef = useRef(null);
+  const dialogRef = useRef(null);
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
 
-  // Generate default ID if adding new member
-  const computeNextId = () => {
+  // Generate guaranteed unique ID if adding new member
+  const computeNextId = (memberList = existingMembers) => {
     if (editingMember?.id) return editingMember.id;
-    const baseNum = 1001 + (existingMembers?.length || 0);
-    return `BL-${baseNum}`;
+    let maxNum = 1000;
+    (memberList || []).forEach(m => {
+      const match = String(m.id || '').match(/BL-(\d+)/i) || String(m.id || '').match(/(\d+)/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (!isNaN(num) && num > maxNum) maxNum = num;
+      }
+    });
+    let nextNum = maxNum + 1;
+    while ((memberList || []).some(m => String(m.id || '').trim().toUpperCase() === `BL-${nextNum}`)) {
+      nextNum++;
+    }
+    return `BL-${nextNum}`;
   };
 
   // Form states
-  const [memberId, setMemberId] = useState(computeNextId());
+  const [memberId, setMemberId] = useState(() => computeNextId());
   const [name, setName] = useState(editingMember?.name || '');
   const [phone, setPhone] = useState(editingMember?.phone || '');
   const [email, setEmail] = useState(editingMember?.email || '');
@@ -27,8 +41,21 @@ export default function AddMemberModal({
   const [age, setAge] = useState(editingMember?.age || 25);
   const [photo, setPhoto] = useState(editingMember?.photo || '');
   
-  // Package & Dates
-  const [packageId, setPackageId] = useState(editingMember?.packageId || DEFAULT_PACKAGES[0].id);
+  // Package & Category States
+  const [selectedCategory, setSelectedCategory] = useState(() => {
+    if (editingMember?.packageId) {
+      const match = DEFAULT_PACKAGES.find(p => p.id === editingMember.packageId);
+      if (match?.category) return match.category;
+    }
+    return 'Body Building';
+  });
+  const [packageId, setPackageId] = useState(() => {
+    if (editingMember?.packageId && DEFAULT_PACKAGES.some(p => p.id === editingMember.packageId)) {
+      return editingMember.packageId;
+    }
+    return DEFAULT_PACKAGES[0].id;
+  });
+  const [includeAdmissionFee, setIncludeAdmissionFee] = useState(!isEditing);
   const [startDate, setStartDate] = useState(editingMember?.startDate || new Date().toISOString().split('T')[0]);
   
   const selectedPkg = DEFAULT_PACKAGES.find(p => p.id === packageId) || DEFAULT_PACKAGES[0];
@@ -78,6 +105,87 @@ export default function AddMemberModal({
     if (errorMsg) setErrorMsg('');
   };
 
+  // Live Webcam States
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const [cameraError, setCameraError] = useState('');
+
+  // Start Live Webcam
+  const handleStartCamera = async () => {
+    setCameraError('');
+    setIsCameraActive(true);
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('Camera access is not supported by your browser or environment.');
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          width: { ideal: 480 },
+          height: { ideal: 480 },
+          facingMode: 'user'
+        },
+        audio: false
+      });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play().catch(e => console.warn('Video play error:', e));
+      }
+    } catch (err) {
+      console.error('Camera error:', err);
+      setCameraError(err.message || 'Unable to access webcam. Please check camera permissions.');
+    }
+  };
+
+  // Stop Webcam stream
+  const handleStopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    setIsCameraActive(false);
+    setCameraError('');
+  };
+
+  // Capture Photo Frame to Canvas
+  const handleCapturePhoto = () => {
+    if (!videoRef.current) return;
+    const video = videoRef.current;
+    const canvas = document.createElement('canvas');
+    const vw = video.videoWidth || 320;
+    const vh = video.videoHeight || 320;
+    const size = Math.min(vw, vh);
+
+    canvas.width = 320;
+    canvas.height = 320;
+    const ctx = canvas.getContext('2d');
+
+    // Center crop square
+    const sx = (vw - size) / 2;
+    const sy = (vh - size) / 2;
+    ctx.drawImage(video, sx, sy, size, size, 0, 0, 320, 320);
+
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+    setPhoto(dataUrl);
+    handleStopCamera();
+  };
+
+  // Clean up camera on unmount
+  useEffect(() => {
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(t => t.stop());
+      }
+    };
+  }, []);
+
+  const handleModalClose = () => {
+    handleStopCamera();
+    onClose();
+  };
+
   // Handle Photo Upload
   const handlePhotoUpload = (e) => {
     const file = e.target.files?.[0];
@@ -94,6 +202,11 @@ export default function AddMemberModal({
     }
   };
 
+  const admissionCharge = (!isEditing && includeAdmissionFee) ? DEFAULT_ADMISSION_FEE : 0;
+  const totalFee = selectedPkg.price + admissionCharge;
+  const currentPaid = Number(paidNow || 0);
+  const pendingAmount = Math.max(0, totalFee - currentPaid);
+
   // Handle Package Change
   const handlePackageChange = (id) => {
     setPackageId(id);
@@ -101,11 +214,35 @@ export default function AddMemberModal({
     const pkg = DEFAULT_PACKAGES.find(p => p.id === id);
     if (pkg) {
       setExpiryDate(computeDefaultExpiry(startDate, pkg.durationDays));
+      const newTotal = pkg.price + admissionCharge;
       if (feeMode === 'full') {
-        setPaidNow(pkg.price);
-      } else if (feeMode === 'partial' && paidNow > pkg.price) {
-        setPaidNow(pkg.price);
+        setPaidNow(newTotal);
+      } else if (feeMode === 'partial' && paidNow > newTotal) {
+        setPaidNow(newTotal);
       }
+    }
+  };
+
+  // Handle Category Change
+  const handleCategoryChange = (category) => {
+    setSelectedCategory(category);
+    clearFieldError('packageId');
+    const currentDuration = selectedPkg.durationDays;
+    const match = DEFAULT_PACKAGES.find(p => p.category === category && p.durationDays === currentDuration) 
+      || DEFAULT_PACKAGES.find(p => p.category === category)
+      || DEFAULT_PACKAGES[0];
+    handlePackageChange(match.id);
+  };
+
+  // Handle Admission Fee Toggle
+  const handleToggleAdmissionFee = (checked) => {
+    setIncludeAdmissionFee(checked);
+    const newAdmission = checked ? DEFAULT_ADMISSION_FEE : 0;
+    const newTotal = selectedPkg.price + newAdmission;
+    if (feeMode === 'full') {
+      setPaidNow(newTotal);
+    } else if (feeMode === 'partial' && paidNow > newTotal) {
+      setPaidNow(newTotal);
     }
   };
 
@@ -116,20 +253,16 @@ export default function AddMemberModal({
     if (mode === 'unpaid') {
       setPaidNow(0);
     } else if (mode === 'full') {
-      setPaidNow(selectedPkg.price);
+      setPaidNow(totalFee);
     } else if (mode === 'partial') {
-      setPaidNow(Math.round(selectedPkg.price / 2));
+      setPaidNow(Math.round(totalFee / 2));
     }
   };
-
-  const totalFee = selectedPkg.price;
-  const currentPaid = Number(paidNow || 0);
-  const pendingAmount = Math.max(0, totalFee - currentPaid);
 
   // Comprehensive Form Validation
   const validateForm = () => {
     const errors = {};
-    const cleanId = memberId.trim().toUpperCase();
+    const cleanId = String(memberId || '').trim().toUpperCase();
 
     // 1. Member ID
     if (!cleanId) {
@@ -137,12 +270,12 @@ export default function AddMemberModal({
     } else if (!/^[A-Z0-9_-]+$/i.test(cleanId)) {
       errors.memberId = 'Member ID can only contain letters, numbers, and hyphens.';
     } else if (!isEditing) {
-      const idExists = existingMembers?.some(m => m.id.toUpperCase() === cleanId);
+      const idExists = existingMembers?.some(m => String(m.id || '').trim().toUpperCase() === cleanId);
       if (idExists) {
-        errors.memberId = `Member ID "${cleanId}" already exists. Please choose a unique ID.`;
+        errors.memberId = `Member ID "${cleanId}" already exists. Please choose a unique ID or click Auto ID.`;
       }
-    } else if (isEditing && editingMember && editingMember.id.toUpperCase() !== cleanId) {
-      const idExists = existingMembers?.some(m => m.id.toUpperCase() === cleanId && m.id !== editingMember.id);
+    } else if (isEditing && editingMember && String(editingMember.id || '').trim().toUpperCase() !== cleanId) {
+      const idExists = existingMembers?.some(m => String(m.id || '').trim().toUpperCase() === cleanId && m.id !== editingMember.id);
       if (idExists) {
         errors.memberId = `Member ID "${cleanId}" already belongs to another member.`;
       }
@@ -154,8 +287,8 @@ export default function AddMemberModal({
       errors.name = 'Full name is mandatory.';
     } else if (cleanName.length < 2) {
       errors.name = 'Full name must contain at least 2 characters.';
-    } else if (!/^[A-Za-z\s.'-]+$/.test(cleanName)) {
-      errors.name = 'Full name should only contain letters and standard characters.';
+    } else if (!/^[\p{L}\p{N}\s.'\-()&/]+$/u.test(cleanName)) {
+      errors.name = 'Full name should only contain letters, numbers and standard punctuation.';
     }
 
     // 3. Phone Number
@@ -226,10 +359,13 @@ export default function AddMemberModal({
 
     if (!validateForm()) {
       setErrorMsg('Please correct the highlighted errors before submitting the form.');
+      if (dialogRef.current) {
+        dialogRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+      }
       return;
     }
 
-    const cleanId = memberId.trim().toUpperCase();
+    const cleanId = String(memberId || '').trim().toUpperCase();
 
     // Determine status
     let memberStatus = 'Active';
@@ -263,6 +399,8 @@ export default function AddMemberModal({
       photo,
       packageId,
       packageName: selectedPkg.name,
+      packageCategory: selectedCategory,
+      admissionFee: admissionCharge,
       totalFee,
       paidAmount: currentPaid,
       pendingAmount,
@@ -277,14 +415,33 @@ export default function AddMemberModal({
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className="modal-backdrop" onClick={handleModalClose}>
       <div 
+        ref={dialogRef}
         className="desktop-modal-dialog" 
         onClick={(e) => e.stopPropagation()}
-        style={{ maxWidth: '680px', maxHeight: '90vh', overflowY: 'auto' }}
+        style={{ 
+          maxWidth: '680px', 
+          maxHeight: '90vh', 
+          overflowY: 'auto',
+          position: 'relative',
+          padding: '20px 24px'
+        }}
       >
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '14px', borderBottom: '1px solid var(--border-color)' }}>
+        {/* Header (Sticky at top) */}
+        <div style={{ 
+          position: 'sticky', 
+          top: '-20px', 
+          background: '#FFFFFF', 
+          zIndex: 20, 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'space-between', 
+          paddingTop: '4px',
+          paddingBottom: '14px', 
+          borderBottom: '1px solid var(--border-color)',
+          marginBottom: '6px'
+        }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <UserPlus size={18} color="#2563EB" />
@@ -300,7 +457,7 @@ export default function AddMemberModal({
           </div>
 
           <button 
-            onClick={onClose}
+            onClick={handleModalClose}
             className="tap-btn"
             style={{ width: '30px', height: '30px', borderRadius: '6px', background: '#F8FAFC', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
           >
@@ -349,11 +506,33 @@ export default function AddMemberModal({
               )}
             </div>
 
-            <div style={{ flex: 1, minWidth: '160px' }}>
-              <span style={{ fontSize: '12px', fontWeight: '700', color: '#1E293B', display: 'block', marginBottom: '4px' }}>
+            <div style={{ flex: 1, minWidth: '220px' }}>
+              <span style={{ fontSize: '12px', fontWeight: '700', color: '#1E293B', display: 'block', marginBottom: '6px' }}>
                 Member Profile Photo
               </span>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={handleStartCamera}
+                  className="tap-btn"
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: '6px',
+                    border: '1px solid #2563EB',
+                    background: '#2563EB',
+                    color: '#FFFFFF',
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px'
+                  }}
+                >
+                  <Camera size={14} />
+                  <span>Take Live Photo</span>
+                </button>
+
                 <input 
                   type="file" 
                   ref={fileInputRef}
@@ -380,7 +559,7 @@ export default function AddMemberModal({
                   }}
                 >
                   <Upload size={13} />
-                  <span>{photo ? 'Change Photo' : 'Upload Photo'}</span>
+                  <span>{photo ? 'Change File' : 'Upload File'}</span>
                 </button>
 
                 {photo && (
@@ -404,11 +583,139 @@ export default function AddMemberModal({
               </div>
             </div>
 
+            {/* Live Camera Viewfinder Box if active */}
+            {isCameraActive && (
+              <div style={{
+                width: '100%',
+                background: '#0F172A',
+                borderRadius: '12px',
+                padding: '16px',
+                color: '#FFFFFF',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '12px',
+                marginTop: '10px'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#EF4444' }} />
+                    <span style={{ fontSize: '13px', fontWeight: '800', letterSpacing: '0.5px' }}>
+                      DESK WEBCAM LIVE PREVIEW
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleStopCamera}
+                    style={{ background: 'transparent', border: 'none', color: '#94A3B8', cursor: 'pointer', padding: '4px' }}
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                {cameraError ? (
+                  <div style={{ padding: '16px', background: 'rgba(239, 68, 68, 0.2)', border: '1px solid #EF4444', borderRadius: '8px', color: '#FCA5A5', fontSize: '12px', textAlign: 'center' }}>
+                    <p style={{ margin: '0 0 8px', fontWeight: '700' }}>{cameraError}</p>
+                    <button
+                      type="button"
+                      onClick={handleStartCamera}
+                      style={{ padding: '6px 12px', borderRadius: '6px', background: '#EF4444', color: '#FFF', border: 'none', cursor: 'pointer', fontWeight: '700', fontSize: '11px' }}
+                    >
+                      Retry Camera
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ position: 'relative', width: '240px', height: '240px', borderRadius: '12px', overflow: 'hidden', background: '#1E293B', border: '3px solid #3B82F6' }}>
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
+                    <div style={{ position: 'absolute', inset: '16px', border: '2px dashed rgba(255,255,255,0.6)', borderRadius: '50%', pointerEvents: 'none' }} />
+                    <span style={{ position: 'absolute', bottom: '6px', left: 0, right: 0, textAlign: 'center', fontSize: '10.5px', color: '#E2E8F0', textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
+                      Center face in frame
+                    </span>
+                  </div>
+                )}
+
+                {!cameraError && (
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <button
+                      type="button"
+                      onClick={handleCapturePhoto}
+                      className="tap-btn"
+                      style={{
+                        padding: '8px 20px',
+                        borderRadius: '6px',
+                        background: '#16A34A',
+                        color: '#FFFFFF',
+                        border: 'none',
+                        fontSize: '13px',
+                        fontWeight: '800',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                    >
+                      <Check size={16} />
+                      <span>Capture Photo</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleStopCamera}
+                      className="tap-btn"
+                      style={{
+                        padding: '8px 14px',
+                        borderRadius: '6px',
+                        background: 'rgba(255,255,255,0.15)',
+                        color: '#E2E8F0',
+                        border: '1px solid rgba(255,255,255,0.3)',
+                        fontSize: '12px',
+                        fontWeight: '700',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Editable Member ID */}
-            <div style={{ minWidth: '150px' }}>
-              <label style={{ fontSize: '12px', fontWeight: '700', color: '#1E293B', display: 'block', marginBottom: '4px' }}>
-                Member ID *
-              </label>
+            <div style={{ minWidth: '160px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                <label style={{ fontSize: '12px', fontWeight: '700', color: '#1E293B', display: 'block', margin: 0 }}>
+                  Member ID *
+                </label>
+                {!isEditing && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = computeNextId();
+                      setMemberId(next);
+                      clearFieldError('memberId');
+                    }}
+                    style={{
+                      fontSize: '11px',
+                      color: '#2563EB',
+                      background: '#EFF6FF',
+                      border: '1px solid #BFDBFE',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      padding: '1px 6px',
+                      fontWeight: '700'
+                    }}
+                    title="Generate next available ID"
+                  >
+                    Auto ID
+                  </button>
+                )}
+              </div>
               <input 
                 type="text"
                 required
@@ -588,11 +895,72 @@ export default function AddMemberModal({
 
           {/* Section: Membership Package */}
           <div>
-            <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '6px' }}>
-              Select Membership Package Plan *
-            </label>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
+              <label style={{ fontSize: '13px', fontWeight: '800', color: '#0F172A', margin: 0 }}>
+                Select Membership Package *
+              </label>
+
+              {/* Segmented Pill Selector (matches user screenshot) */}
+              <div style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                background: '#F1F5F9',
+                padding: '3px',
+                borderRadius: '9999px',
+                border: '1px solid #E2E8F0',
+                gap: '4px'
+              }}>
+                <button
+                  type="button"
+                  onClick={() => handleCategoryChange('Body Building')}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '6px 14px',
+                    borderRadius: '9999px',
+                    border: 'none',
+                    background: selectedCategory === 'Body Building' ? '#2563EB' : 'transparent',
+                    color: selectedCategory === 'Body Building' ? '#FFFFFF' : '#475569',
+                    fontSize: '12.5px',
+                    fontWeight: selectedCategory === 'Body Building' ? '700' : '600',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    boxShadow: selectedCategory === 'Body Building' ? '0 1px 3px rgba(37,99,235,0.35)' : 'none'
+                  }}
+                >
+                  <span>💪</span>
+                  <span>Body Building</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleCategoryChange('Cardio & Fitness')}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '6px 14px',
+                    borderRadius: '9999px',
+                    border: 'none',
+                    background: selectedCategory === 'Cardio & Fitness' ? '#2563EB' : 'transparent',
+                    color: selectedCategory === 'Cardio & Fitness' ? '#FFFFFF' : '#475569',
+                    fontSize: '12.5px',
+                    fontWeight: selectedCategory === 'Cardio & Fitness' ? '700' : '600',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    boxShadow: selectedCategory === 'Cardio & Fitness' ? '0 1px 3px rgba(37,99,235,0.35)' : 'none'
+                  }}
+                >
+                  <span>🏃</span>
+                  <span>Cardio & Fitness</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Packages Grid */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-              {DEFAULT_PACKAGES.map((pkg) => {
+              {DEFAULT_PACKAGES.filter(p => p.category === selectedCategory).map((pkg) => {
                 const isSelected = pkg.id === packageId;
                 return (
                   <div
@@ -606,12 +974,13 @@ export default function AddMemberModal({
                       cursor: 'pointer',
                       display: 'flex',
                       justifyContent: 'space-between',
-                      alignItems: 'center'
+                      alignItems: 'center',
+                      transition: 'all 0.15s ease'
                     }}
                   >
                     <div>
                       <p style={{ fontSize: '13px', fontWeight: '800', color: isSelected ? '#1E40AF' : '#0F172A', margin: 0 }}>
-                        {pkg.name}
+                        {pkg.shortName || pkg.name}
                       </p>
                       <p style={{ fontSize: '11px', color: '#64748B', margin: '2px 0 0' }}>
                         {pkg.durationDays} Days validity
@@ -624,6 +993,39 @@ export default function AddMemberModal({
                 );
               })}
             </div>
+
+            {/* Admission Fee Row */}
+            {!isEditing && (
+              <div style={{
+                marginTop: '10px',
+                padding: '9px 12px',
+                background: includeAdmissionFee ? '#EFF6FF' : '#F8FAFC',
+                border: `1px solid ${includeAdmissionFee ? '#BFDBFE' : '#E2E8F0'}`,
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between'
+              }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0 }}>
+                  <input
+                    type="checkbox"
+                    checked={includeAdmissionFee}
+                    onChange={(e) => handleToggleAdmissionFee(e.target.checked)}
+                    style={{ width: '16px', height: '16px', accentColor: '#2563EB', cursor: 'pointer' }}
+                  />
+                  <span style={{ fontSize: '12px', fontWeight: '700', color: '#1E293B' }}>
+                    One-time Admission Fee
+                  </span>
+                  <span style={{ fontSize: '11px', color: '#64748B' }}>
+                    (Official Registration: Rs. 100)
+                  </span>
+                </label>
+                <span style={{ fontSize: '12.5px', fontWeight: '800', color: includeAdmissionFee ? '#2563EB' : '#94A3B8' }}>
+                  ₹100
+                </span>
+              </div>
+            )}
+
             {fieldErrors.packageId && (
               <span style={{ fontSize: '11px', color: '#DC2626', fontWeight: '600', marginTop: '4px', display: 'block' }}>
                 {fieldErrors.packageId}
@@ -848,38 +1250,72 @@ export default function AddMemberModal({
             )}
           </div>
 
-          {/* Footer Actions */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', paddingTop: '8px', borderTop: '1px solid var(--border-color)' }}>
-            <button
-              type="button"
-              onClick={onClose}
-              className="tap-btn"
-              style={{
-                padding: '9px 18px',
-                borderRadius: '6px',
-                border: '1px solid var(--border-color)',
-                background: '#FFFFFF',
-                color: '#64748B',
-                fontSize: '13px',
-                fontWeight: '700',
-                cursor: 'pointer'
-              }}
-            >
-              Cancel
-            </button>
+          {/* Footer Actions (Sticky at bottom) */}
+          <div style={{ 
+            position: 'sticky', 
+            bottom: '-20px', 
+            background: '#FFFFFF', 
+            zIndex: 20,
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            gap: '12px', 
+            paddingTop: '12px', 
+            paddingBottom: '8px', 
+            borderTop: '1px solid var(--border-color)',
+            marginTop: '10px'
+          }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              {errorMsg && (
+                <div style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '6px', 
+                  color: '#DC2626', 
+                  fontSize: '12px', 
+                  fontWeight: '700',
+                  lineHeight: 1.3
+                }}>
+                  <AlertCircle size={15} style={{ flexShrink: 0 }} />
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {errorMsg}
+                  </span>
+                </div>
+              )}
+            </div>
 
-            <button
-              type="submit"
-              className="tap-btn btn-primary"
-              style={{
-                padding: '9px 24px',
-                fontSize: '13px',
-                fontWeight: '800'
-              }}
-            >
-              <Check size={16} />
-              <span>{isEditing ? 'Save Changes' : 'Confirm Registration'}</span>
-            </button>
+            <div style={{ display: 'flex', gap: '10px', flexShrink: 0 }}>
+              <button
+                type="button"
+                onClick={onClose}
+                className="tap-btn"
+                style={{
+                  padding: '9px 18px',
+                  borderRadius: '6px',
+                  border: '1px solid var(--border-color)',
+                  background: '#FFFFFF',
+                  color: '#64748B',
+                  fontSize: '13px',
+                  fontWeight: '700',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+
+              <button
+                type="submit"
+                className="tap-btn btn-primary"
+                style={{
+                  padding: '9px 24px',
+                  fontSize: '13px',
+                  fontWeight: '800'
+                }}
+              >
+                <Check size={16} />
+                <span>{isEditing ? 'Save Changes' : 'Confirm Registration'}</span>
+              </button>
+            </div>
           </div>
 
         </form>

@@ -6,11 +6,84 @@ import * as XLSX from 'xlsx';
  * Zero external servers required. Data persists locally with full SQL dump and Excel (.xlsx) export.
  */
 
+export const DEFAULT_ADMISSION_FEE = 100;
+
 export const DEFAULT_PACKAGES = [
-  { id: "pkg_monthly", name: "1 Month Standard", durationDays: 30, price: 2000 },
-  { id: "pkg_quarterly", name: "3 Months Pro", durationDays: 90, price: 5000 },
-  { id: "pkg_half_yearly", name: "6 Months Elite", durationDays: 180, price: 9000 },
-  { id: "pkg_annual", name: "1 Year VIP Membership", durationDays: 365, price: 15000 }
+  // Body Building
+  { 
+    id: "pkg_bb_1m", 
+    category: "Body Building", 
+    name: "Body Building - 1 Month", 
+    shortName: "1 Month",
+    durationDays: 30, 
+    price: 700, 
+    admissionFee: 100 
+  },
+  { 
+    id: "pkg_bb_3m", 
+    category: "Body Building", 
+    name: "Body Building - 3 Months", 
+    shortName: "3 Months",
+    durationDays: 90, 
+    price: 1800, 
+    admissionFee: 100 
+  },
+  { 
+    id: "pkg_bb_6m", 
+    category: "Body Building", 
+    name: "Body Building - 6 Months", 
+    shortName: "6 Months",
+    durationDays: 180, 
+    price: 3500, 
+    admissionFee: 100 
+  },
+  { 
+    id: "pkg_bb_12m", 
+    category: "Body Building", 
+    name: "Body Building - 12 Months", 
+    shortName: "12 Months",
+    durationDays: 365, 
+    price: 6500, 
+    admissionFee: 100 
+  },
+
+  // Cardio & Fitness
+  { 
+    id: "pkg_cf_1m", 
+    category: "Cardio & Fitness", 
+    name: "Cardio & Fitness - 1 Month", 
+    shortName: "1 Month",
+    durationDays: 30, 
+    price: 1000, 
+    admissionFee: 100 
+  },
+  { 
+    id: "pkg_cf_3m", 
+    category: "Cardio & Fitness", 
+    name: "Cardio & Fitness - 3 Months", 
+    shortName: "3 Months",
+    durationDays: 90, 
+    price: 2500, 
+    admissionFee: 100 
+  },
+  { 
+    id: "pkg_cf_6m", 
+    category: "Cardio & Fitness", 
+    name: "Cardio & Fitness - 6 Months", 
+    shortName: "6 Months",
+    durationDays: 180, 
+    price: 5000, 
+    admissionFee: 100 
+  },
+  { 
+    id: "pkg_cf_12m", 
+    category: "Cardio & Fitness", 
+    name: "Cardio & Fitness - 12 Months", 
+    shortName: "12 Months",
+    durationDays: 365, 
+    price: 8000, 
+    admissionFee: 100 
+  }
 ];
 
 // No mock data - clean starting database for gym client
@@ -370,7 +443,7 @@ export async function importDatabaseFromJson(file) {
   });
 }
 
-const PACKAGES_STORAGE_KEY = 'bodylife_packages_v1';
+const PACKAGES_STORAGE_KEY = 'bodylife_packages_v2';
 
 export function getCustomPackages() {
   try {

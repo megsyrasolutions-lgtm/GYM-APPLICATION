@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import DesktopLayout from './components/DesktopLayout';
+import LoadingScreen from './components/LoadingScreen';
 
 // Admin Screens (Fee & User Management)
 import AdminDashboard from './screens/admin/AdminDashboard';
 import AdminMembers from './screens/admin/AdminMembers';
 import AdminPayments from './screens/admin/AdminPayments';
 import AdminAlerts from './screens/admin/AdminAlerts';
-import AdminScanner from './screens/admin/AdminScanner';
 
 // Modals
 import AddMemberModal from './modals/AddMemberModal';
@@ -32,8 +32,9 @@ import { getComputedMemberStatus } from './utils/statusHelper';
 
 export default function App() {
   const [members, setMembers] = useState(() => getLocalDatabase());
-  const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'members' | 'payments' | 'scanner' | 'alerts'
+  const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'members' | 'payments' | 'alerts'
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [isAppLoading, setIsAppLoading] = useState(true);
 
   // Hybrid Cloud Sync State (Supabase + Local Storage)
   const [syncStatus, setSyncStatus] = useState(() => (navigator.onLine ? 'synced' : 'offline'));
@@ -130,6 +131,66 @@ export default function App() {
       if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
     };
   }, []);
+
+  // Global Desktop Productivity Shortcuts (Alt+N, Alt+P, Escape)
+  useEffect(() => {
+    const handleGlobalKeyDown = (e) => {
+      // Escape to close topmost modal
+      if (e.key === 'Escape') {
+        if (activeReceipt) {
+          setActiveReceipt(null);
+          return;
+        }
+        if (activeWhatsAppModalData) {
+          setActiveWhatsAppModalData(null);
+          return;
+        }
+        if (showRenewMember) {
+          setShowRenewMember(false);
+          setPreselectedRenewMember(null);
+          return;
+        }
+        if (selectedMemberDetail) {
+          setSelectedMemberDetail(null);
+          return;
+        }
+        if (showRecordPayment) {
+          setShowRecordPayment(false);
+          setPreselectedPaymentMember(null);
+          return;
+        }
+        if (showAddMember) {
+          setShowAddMember(false);
+          setEditingMember(null);
+          return;
+        }
+      }
+
+      // Alt+N to quickly open Enroll Member modal
+      if (e.altKey && e.key.toLowerCase() === 'n') {
+        e.preventDefault();
+        setEditingMember(null);
+        setShowAddMember(true);
+      }
+
+      // Alt+P to quickly open Record Payment modal
+      if (e.altKey && e.key.toLowerCase() === 'p') {
+        e.preventDefault();
+        setPreselectedPaymentMember(null);
+        setShowRecordPayment(true);
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [
+    activeReceipt,
+    activeWhatsAppModalData,
+    showRenewMember,
+    selectedMemberDetail,
+    showRecordPayment,
+    showAddMember
+  ]);
 
   // Manual trigger for Cloud Sync button in header / sidebar
   const handleManualSync = async () => {
@@ -473,30 +534,39 @@ export default function App() {
   }).length;
 
   return (
-    <DesktopLayout
-      activeTab={activeTab}
-      onSelectTab={(tabId) => setActiveTab(tabId)}
-      members={members}
-      notification={notification}
-      onDismissNotification={() => setNotification(null)}
-      soundEnabled={soundEnabled}
-      onToggleSound={() => setSoundEnabled(!soundEnabled)}
-      onOpenAddMember={() => { setEditingMember(null); setShowAddMember(true); }}
-      onOpenRecordPayment={() => { setPreselectedPaymentMember(null); setShowRecordPayment(true); }}
-      onOpenMemberDetail={(m) => setSelectedMemberDetail(m)}
-      onOpenNotifications={() => setActiveTab('alerts')}
-      onOpenWhatsApp={(m) => setActiveWhatsAppModalData(m)}
-      onExportExcel={handleExportExcel}
-      onExportSql={handleExportExcel}
-      onImportDatabase={handleImportDatabase}
-      unreadAlertsCount={overdueOrExpiringCount}
-      syncState={{
-        status: syncStatus,
-        lastSyncedAt,
-        isSyncing: syncStatus === 'syncing',
-        onSync: handleManualSync
-      }}
-    >
+    <>
+      {isAppLoading && (
+        <LoadingScreen
+          soundEnabled={soundEnabled}
+          onToggleSound={() => setSoundEnabled(prev => !prev)}
+          onFinish={() => setIsAppLoading(false)}
+        />
+      )}
+
+      <DesktopLayout
+        activeTab={activeTab}
+        onSelectTab={(tabId) => setActiveTab(tabId)}
+        members={members}
+        notification={notification}
+        onDismissNotification={() => setNotification(null)}
+        soundEnabled={soundEnabled}
+        onToggleSound={() => setSoundEnabled(!soundEnabled)}
+        onOpenAddMember={() => { setEditingMember(null); setShowAddMember(true); }}
+        onOpenRecordPayment={() => { setPreselectedPaymentMember(null); setShowRecordPayment(true); }}
+        onOpenMemberDetail={(m) => setSelectedMemberDetail(m)}
+        onOpenNotifications={() => setActiveTab('alerts')}
+        onOpenWhatsApp={(m) => setActiveWhatsAppModalData(m)}
+        onExportExcel={handleExportExcel}
+        onExportSql={handleExportExcel}
+        onImportDatabase={handleImportDatabase}
+        unreadAlertsCount={overdueOrExpiringCount}
+        syncState={{
+          status: syncStatus,
+          lastSyncedAt,
+          isSyncing: syncStatus === 'syncing',
+          onSync: handleManualSync
+        }}
+      >
       {/* Exclusively Admin Portal Screens: Fee & User Management */}
       {activeTab === 'dashboard' && (
         <AdminDashboard
@@ -530,20 +600,6 @@ export default function App() {
         />
       )}
 
-      {activeTab === 'scanner' && (
-        <AdminScanner
-          members={members}
-          soundEnabled={soundEnabled}
-          onLogCheckIn={(m) => {
-            showPushNotice({
-              title: 'Member Checked In',
-              message: `${m.name} (${m.id}) entered gym premises.`,
-              icon: '🚪'
-            });
-          }}
-        />
-      )}
-
       {activeTab === 'alerts' && (
         <AdminAlerts
           members={members}
@@ -554,10 +610,11 @@ export default function App() {
           onTriggerPushNotification={showPushNotice}
         />
       )}
+    </DesktopLayout>
 
-      {/* Global Desktop Modals */}
-      {showAddMember && (
-        <AddMemberModal
+    {/* Global Desktop Modals (Rendered as top-level overlays outside DesktopLayout) */}
+    {showAddMember && (
+      <AddMemberModal
           editingMember={editingMember}
           existingMembers={members}
           onClose={() => { setShowAddMember(false); setEditingMember(null); }}
@@ -656,6 +713,6 @@ export default function App() {
           }}
         />
       )}
-    </DesktopLayout>
+    </>
   );
 }

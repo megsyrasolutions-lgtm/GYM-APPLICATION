@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, RefreshCw, Calendar, CreditCard, ShieldCheck, CheckCircle2, AlertCircle } from 'lucide-react';
+import { X, RefreshCw, Calendar, CreditCard, ShieldCheck, CheckCircle2, AlertCircle, Dumbbell, HeartPulse } from 'lucide-react';
 import { DEFAULT_PACKAGES } from '../services/db';
 import { getDaysRemaining } from '../utils/statusHelper';
 
@@ -12,7 +12,20 @@ export default function RenewMembershipModal({
   const [selectedMemberId, setSelectedMemberId] = useState(preselectedMember?.id || members[0]?.id || '');
   const member = members.find(m => m.id === selectedMemberId) || members[0];
 
-  const [packageId, setPackageId] = useState(DEFAULT_PACKAGES[0].id);
+  const [selectedCategory, setSelectedCategory] = useState(() => {
+    if (member?.packageId) {
+      const match = DEFAULT_PACKAGES.find(p => p.id === member.packageId);
+      if (match?.category) return match.category;
+    }
+    return 'Body Building';
+  });
+
+  const [packageId, setPackageId] = useState(() => {
+    if (member?.packageId && DEFAULT_PACKAGES.some(p => p.id === member.packageId)) {
+      return member.packageId;
+    }
+    return DEFAULT_PACKAGES[0].id;
+  });
   const selectedPkg = DEFAULT_PACKAGES.find(p => p.id === packageId) || DEFAULT_PACKAGES[0];
 
   // Calculate default start date: if current membership hasn't expired yet, continue seamlessly from current expiry date
@@ -72,6 +85,16 @@ export default function RenewMembershipModal({
     } else if (paymentOption === 'partial' && paidNow > pkg.price) {
       setPaidNow(pkg.price);
     }
+  };
+
+  // When category changes
+  const handleCategoryChange = (category) => {
+    setSelectedCategory(category);
+    const currentDuration = selectedPkg.durationDays;
+    const match = DEFAULT_PACKAGES.find(p => p.category === category && p.durationDays === currentDuration) 
+      || DEFAULT_PACKAGES.find(p => p.category === category)
+      || DEFAULT_PACKAGES[0];
+    handlePackageChange(match.id);
   };
 
   // When start date changes
@@ -246,11 +269,71 @@ export default function RenewMembershipModal({
 
           {/* Renewal Package Selection */}
           <div>
-            <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '8px' }}>
-              Select Renewal Package
-            </label>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: '800', color: '#0F172A', margin: 0 }}>
+                Select Renewal Package
+              </label>
+
+              {/* Segmented Pill Selector (matches user screenshot) */}
+              <div style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                background: '#F1F5F9',
+                padding: '3px',
+                borderRadius: '9999px',
+                border: '1px solid #E2E8F0',
+                gap: '4px'
+              }}>
+                <button
+                  type="button"
+                  onClick={() => handleCategoryChange('Body Building')}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '6px 14px',
+                    borderRadius: '9999px',
+                    border: 'none',
+                    background: selectedCategory === 'Body Building' ? '#2563EB' : 'transparent',
+                    color: selectedCategory === 'Body Building' ? '#FFFFFF' : '#475569',
+                    fontSize: '12.5px',
+                    fontWeight: selectedCategory === 'Body Building' ? '700' : '600',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    boxShadow: selectedCategory === 'Body Building' ? '0 1px 3px rgba(37,99,235,0.35)' : 'none'
+                  }}
+                >
+                  <span>💪</span>
+                  <span>Body Building</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleCategoryChange('Cardio & Fitness')}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '6px 14px',
+                    borderRadius: '9999px',
+                    border: 'none',
+                    background: selectedCategory === 'Cardio & Fitness' ? '#2563EB' : 'transparent',
+                    color: selectedCategory === 'Cardio & Fitness' ? '#FFFFFF' : '#475569',
+                    fontSize: '12.5px',
+                    fontWeight: selectedCategory === 'Cardio & Fitness' ? '700' : '600',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    boxShadow: selectedCategory === 'Cardio & Fitness' ? '0 1px 3px rgba(37,99,235,0.35)' : 'none'
+                  }}
+                >
+                  <span>🏃</span>
+                  <span>Cardio & Fitness</span>
+                </button>
+              </div>
+            </div>
+
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-              {DEFAULT_PACKAGES.map(pkg => {
+              {DEFAULT_PACKAGES.filter(p => p.category === selectedCategory).map(pkg => {
                 const isSelected = pkg.id === packageId;
                 return (
                   <div
@@ -262,12 +345,13 @@ export default function RenewMembershipModal({
                       background: isSelected ? '#EFF6FF' : '#FFFFFF',
                       borderRadius: '8px',
                       padding: '10px 12px',
-                      cursor: 'pointer'
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease'
                     }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <strong style={{ fontSize: '13px', color: isSelected ? '#1E40AF' : '#0F172A' }}>
-                        {pkg.name}
+                        {pkg.shortName || pkg.name}
                       </strong>
                       <span style={{ fontSize: '13px', fontWeight: '800', color: '#2563EB' }}>
                         ₹{pkg.price.toLocaleString()}

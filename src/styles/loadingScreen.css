@@ -1,0 +1,472 @@
+/* ========================================================
+   BodyLife - Clean Blue & White Luxury Loading Screen
+   Matches the Application's Official Background & Theme (#F8FAFC)
+   ======================================================== */
+
+.bodylife-loading-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: #F8FAFC;
+  background-image: 
+    radial-gradient(circle at 50% 36%, rgba(219, 234, 254, 0.55) 0%, rgba(254, 243, 199, 0.3) 32%, rgba(248, 250, 252, 0.95) 68%, #F8FAFC 100%),
+    linear-gradient(rgba(148, 163, 184, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.05) 1px, transparent 1px);
+  background-size: 100% 100%, 40px 40px, 40px 40px;
+  background-position: center center, center center, center center;
+  overflow: hidden;
+  user-select: none;
+  opacity: 1;
+  transform: scale(1);
+  transition: opacity 0.65s cubic-bezier(0.16, 1, 0.3, 1), 
+              transform 0.65s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+
+.bodylife-loading-overlay.fade-out {
+  opacity: 0;
+  transform: scale(1.03);
+  pointer-events: none;
+}
+
+/* Ambient Background Glow Beams */
+.bodylife-loading-bg-glow {
+  position: absolute;
+  width: 650px;
+  height: 650px;
+  top: calc(36% - 325px);
+  left: calc(50% - 325px);
+  background: radial-gradient(circle, rgba(37, 99, 235, 0.12) 0%, rgba(249, 115, 22, 0.08) 38%, rgba(248, 250, 252, 0) 70%);
+  border-radius: 50%;
+  pointer-events: none;
+  animation: pulseBgGlow 4s ease-in-out infinite alternate;
+  filter: blur(48px);
+}
+
+@keyframes pulseBgGlow {
+  0% {
+    transform: scale(0.92) translate3d(0, 0, 0);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(1.15) translate3d(0, 0, 0);
+    opacity: 1;
+  }
+}
+
+/* Top Action Bar (Skip & Sound) */
+.loading-top-bar {
+  position: absolute;
+  top: 24px;
+  right: 28px;
+  left: 28px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 10;
+}
+
+.loading-system-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  color: #475569;
+  text-transform: uppercase;
+}
+
+.loading-pulse-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #10B981;
+  box-shadow: 0 0 10px #10B981;
+  animation: dotPulse 1.8s ease-in-out infinite;
+}
+
+@keyframes dotPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.8); }
+}
+
+.loading-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.loading-action-btn {
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.03);
+  color: #334155;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.loading-action-btn:hover {
+  background: #EFF6FF;
+  border-color: #93C5FD;
+  color: #1E40AF;
+  transform: translateY(-1px);
+}
+
+/* Center Stage */
+.loading-center-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  max-width: 540px;
+  width: 90%;
+  position: relative;
+  z-index: 5;
+  text-align: center;
+}
+
+/* Logo Frame & Dual Orbit Rings */
+.loading-logo-wrapper {
+  position: relative;
+  width: 170px;
+  height: 170px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 28px;
+  animation: logoEntrance 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes logoEntrance {
+  0% {
+    opacity: 0;
+    transform: scale(0.75) translateY(18px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Outer Rotating Techno Ring */
+.loading-orbit-ring {
+  position: absolute;
+  inset: -14px;
+  border-radius: 50%;
+  border: 2px dashed rgba(37, 99, 235, 0.32);
+  animation: spinRing 24s linear infinite;
+  pointer-events: none;
+}
+
+.loading-orbit-ring::after {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #2563EB;
+  box-shadow: 0 0 10px #2563EB, 0 0 16px #3B82F6;
+}
+
+/* Second Counter-Rotating Glow Ring */
+.loading-orbit-ring-inner {
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(249, 115, 22, 0.25);
+  border-top-color: #F97316;
+  border-right-color: transparent;
+  animation: spinRingReverse 9s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes spinRing {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes spinRingReverse {
+  from { transform: rotate(360deg); }
+  to { transform: rotate(0deg); }
+}
+
+/* The Core Logo Card */
+.loading-logo-card {
+  width: 140px;
+  height: 140px;
+  border-radius: 30px;
+  background: #FFFFFF;
+  border: 1.5px solid #DBEAFE;
+  box-shadow: 
+    0 16px 36px -4px rgba(37, 99, 235, 0.12),
+    0 4px 16px rgba(0, 0, 0, 0.04),
+    inset 0 1px 1px #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  animation: floatLogo 3.6s ease-in-out infinite;
+}
+
+@keyframes floatLogo {
+  0%, 100% {
+    transform: translateY(0);
+    box-shadow: 
+      0 16px 36px -4px rgba(37, 99, 235, 0.12),
+      0 4px 16px rgba(0, 0, 0, 0.04),
+      inset 0 1px 1px #FFFFFF;
+  }
+  50% {
+    transform: translateY(-6px);
+    box-shadow: 
+      0 24px 44px -4px rgba(37, 99, 235, 0.18),
+      0 8px 20px rgba(0, 0, 0, 0.06),
+      inset 0 1px 1px #FFFFFF;
+  }
+}
+
+/* Logo Image */
+.loading-logo-img {
+  width: 110px;
+  height: 110px;
+  object-fit: contain;
+  border-radius: 18px;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.12));
+}
+
+/* Sweeping Glass Sheen */
+.loading-logo-card::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(
+    60deg,
+    transparent 38%,
+    rgba(255, 255, 255, 0.6) 48%,
+    transparent 58%
+  );
+  transform: rotate(25deg);
+  animation: sheenSweep 4.2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes sheenSweep {
+  0% { transform: translateY(-120%) rotate(25deg); }
+  35%, 100% { transform: translateY(120%) rotate(25deg); }
+}
+
+/* Brand Typography */
+.loading-brand-header {
+  margin-bottom: 24px;
+}
+
+.loading-brand-title {
+  font-size: 34px;
+  font-weight: 900;
+  letter-spacing: -0.6px;
+  margin: 0 0 6px;
+  color: #0F172A;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.loading-brand-dot {
+  color: #2563EB;
+}
+
+.loading-brand-subtitle {
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 3.2px;
+  color: #64748B;
+  margin: 0;
+}
+
+/* Progress Section */
+.loading-progress-container {
+  width: 100%;
+  max-width: 440px;
+  margin: 0 auto 20px;
+}
+
+.loading-progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+
+.loading-status-text {
+  color: #1E293B;
+  font-weight: 700;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  min-height: 20px;
+}
+
+.loading-status-icon {
+  color: #2563EB;
+  animation: spinSlow 2s linear infinite;
+}
+
+@keyframes spinSlow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.loading-percent-badge {
+  font-family: 'Urbanist', monospace;
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #2563EB;
+  background: #EFF6FF;
+  border: 1px solid #BFDBFE;
+  padding: 2px 10px;
+  border-radius: 6px;
+  letter-spacing: 0.5px;
+}
+
+/* Progress Bar Track */
+.loading-progress-track {
+  height: 8px;
+  width: 100%;
+  background: #E2E8F0;
+  border: 1px solid #CBD5E1;
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.loading-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #2563EB 0%, #3B82F6 40%, #EA580C 85%, #F97316 100%);
+  border-radius: 999px;
+  transition: width 0.18s cubic-bezier(0.2, 0.8, 0.4, 1);
+  position: relative;
+  box-shadow: 0 0 12px rgba(37, 99, 235, 0.35);
+}
+
+.loading-progress-shimmer {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.5) 50%,
+    transparent 100%
+  );
+  animation: barShimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes barShimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* Diagnostic Status Badges */
+.loading-diagnostics {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+
+.loading-diag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 13px;
+  border-radius: 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  color: #64748B;
+  transition: all 0.3s ease;
+}
+
+.loading-diag-chip.active {
+  background: #ECFDF5;
+  border-color: #A7F3D0;
+  color: #059669;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.14);
+}
+
+/* Motivational Quote Bottom Ticker */
+.loading-footer-quote {
+  position: absolute;
+  bottom: 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  z-index: 5;
+  color: #64748B;
+}
+
+.loading-quote-text {
+  font-size: 12.5px;
+  font-style: italic;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  color: #475569;
+  max-width: 480px;
+  text-align: center;
+}
+
+.loading-version-badge {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: #94A3B8;
+  text-transform: uppercase;
+}
+
+/* Reduced Motion Mode */
+@media (prefers-reduced-motion: reduce) {
+  .bodylife-loading-overlay,
+  .loading-logo-card,
+  .loading-orbit-ring,
+  .loading-orbit-ring-inner,
+  .bodylife-loading-bg-glow,
+  .loading-logo-card::after,
+  .loading-progress-shimmer {
+    animation: none !important;
+    transition: opacity 0.2s ease !important;
+  }
+}

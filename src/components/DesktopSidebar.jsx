@@ -16,8 +16,10 @@ import {
   Cloud, 
   CloudOff, 
   RefreshCw,
-  QrCode,
-  Upload
+  Upload,
+  Pin,
+  PinOff,
+  ChevronLeft
 } from 'lucide-react';
 
 export default function DesktopSidebar({
@@ -32,7 +34,10 @@ export default function DesktopSidebar({
   onExportExcel,
   onExportSql,
   onImportDatabase,
-  syncState = null
+  syncState = null,
+  isPinned = false,
+  onTogglePin,
+  onCloseSidebar
 }) {
   const fileInputRef = useRef(null);
 
@@ -40,7 +45,6 @@ export default function DesktopSidebar({
     { id: 'dashboard', label: 'Financial Overview', icon: LayoutDashboard },
     { id: 'members', label: 'Members Directory', icon: Users, badge: totalMembersCount },
     { id: 'payments', label: 'Fee Collections & Ledger', icon: CreditCard },
-    { id: 'scanner', label: 'Gate & Check-In', icon: QrCode },
     { id: 'alerts', label: 'Due Reminders & WhatsApp', icon: Bell, badge: alertsBadgeCount, badgeColor: '#DC2626' },
   ];
 
@@ -74,7 +78,7 @@ export default function DesktopSidebar({
             style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
           />
         </div>
-        <div>
+        <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <h1 style={{ fontSize: '19px', fontWeight: '800', letterSpacing: '-0.5px', color: '#0F172A', margin: 0 }}>
               BodyLife<span style={{ color: '#2563EB' }}>.</span>
@@ -83,6 +87,52 @@ export default function DesktopSidebar({
           <p style={{ fontSize: '11px', color: '#64748B', margin: '1px 0 0', fontWeight: '600' }}>
             Gym Management System
           </p>
+        </div>
+
+        {/* Pin & Close Controls */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+          {onTogglePin && (
+            <button
+              onClick={onTogglePin}
+              className="tap-btn"
+              title={isPinned ? "Unpin sidebar (Auto-hide on hover)" : "Pin sidebar to screen"}
+              style={{
+                width: '28px',
+                height: '28px',
+                borderRadius: '6px',
+                border: isPinned ? '1px solid #BFDBFE' : '1px solid #E2E8F0',
+                background: isPinned ? '#EFF6FF' : '#F8FAFC',
+                color: isPinned ? '#2563EB' : '#64748B',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer'
+              }}
+            >
+              {isPinned ? <PinOff size={13} /> : <Pin size={13} />}
+            </button>
+          )}
+          {!isPinned && onCloseSidebar && (
+            <button
+              onClick={onCloseSidebar}
+              className="tap-btn"
+              title="Close sidebar"
+              style={{
+                width: '28px',
+                height: '28px',
+                borderRadius: '6px',
+                border: '1px solid #E2E8F0',
+                background: '#F8FAFC',
+                color: '#64748B',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer'
+              }}
+            >
+              <ChevronLeft size={15} />
+            </button>
+          )}
         </div>
       </div>
 

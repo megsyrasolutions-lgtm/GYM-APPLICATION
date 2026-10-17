@@ -97,7 +97,7 @@ button, input, select, textarea {
 
 /* Sidebar */
 .desktop-sidebar {
-  width: var(--sidebar-width);
+  width: 100%;
   height: 100vh;
   background: #FFFFFF;
   border-right: 1px solid var(--border-color);
@@ -106,6 +106,109 @@ button, input, select, textarea {
   flex-shrink: 0;
   z-index: 40;
   box-shadow: 1px 0 3px rgba(0, 0, 0, 0.02);
+}
+
+/* Sidebar Auto-Hide Hover Trigger */
+.desktop-sidebar-edge-trigger {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 28px;
+  z-index: 55;
+  cursor: pointer;
+  background: transparent;
+  display: flex;
+  align-items: center;
+}
+
+.desktop-sidebar-edge-pill {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 56px;
+  background: #FFFFFF;
+  border: 1px solid var(--border-color);
+  border-left: none;
+  border-radius: 0 10px 10px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748B;
+  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.08);
+  opacity: 0.7;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.desktop-sidebar-edge-trigger:hover .desktop-sidebar-edge-pill {
+  opacity: 1;
+  width: 22px;
+  color: var(--primary-blue);
+  background: #EFF6FF;
+  box-shadow: 3px 0 16px rgba(37, 99, 235, 0.2);
+}
+
+/* Sidebar Wrapper & Dynamic Reveal */
+.desktop-sidebar-wrapper.auto-hide {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: var(--sidebar-width);
+  height: 100vh;
+  z-index: 60;
+  transform: translateX(-100%);
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.28s ease;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.desktop-sidebar-wrapper.auto-hide.visible {
+  transform: translateX(0);
+  pointer-events: auto;
+  box-shadow: 14px 0 38px -5px rgba(15, 23, 42, 0.16), 4px 0 12px rgba(15, 23, 42, 0.06);
+}
+
+.desktop-sidebar-wrapper.pinned {
+  position: relative;
+  width: var(--sidebar-width);
+  height: 100vh;
+  flex-shrink: 0;
+  z-index: 40;
+}
+
+.desktop-sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.15);
+  backdrop-filter: blur(1.5px);
+  -webkit-backdrop-filter: blur(1.5px);
+  z-index: 58;
+  animation: sidebarBackdropFade 0.2s ease forwards;
+}
+
+/* Smooth Tab Content View Transition */
+.tab-content-fade {
+  animation: tabContentFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+}
+
+@keyframes tabContentFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes sidebarBackdropFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 /* Main Area */
@@ -255,13 +358,19 @@ button, input, select, textarea {
   align-items: center;
   justify-content: center;
   padding: 20px;
+  animation: modalBackdropFadeIn 0.18s ease forwards;
+}
+
+@keyframes modalBackdropFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .desktop-modal-dialog,
 .bottom-sheet {
   background: #FFFFFF;
   border-radius: var(--radius-lg);
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 25px 40px -10px rgba(15, 23, 42, 0.2), 0 10px 15px -5px rgba(15, 23, 42, 0.08);
   padding: 24px 28px;
   width: 100%;
   max-width: 640px;
@@ -271,6 +380,114 @@ button, input, select, textarea {
   flex-direction: column;
   gap: 16px;
   border: 1px solid var(--border-color);
+  animation: modalDialogPopIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+}
+
+@keyframes modalDialogPopIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Global Quick Member Search */
+.header-search-wrapper {
+  position: relative;
+  flex: 1;
+  max-width: 320px;
+  margin: 0 14px;
+}
+
+.header-search-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #F1F5F9;
+  border: 1px solid #E2E8F0;
+  border-radius: 10px;
+  padding: 6px 12px;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.header-search-box:focus-within {
+  background: #FFFFFF;
+  border-color: #2563EB;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.header-search-input {
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 12.5px;
+  font-family: inherit;
+  color: #0F172A;
+  width: 100%;
+}
+
+.header-search-input::placeholder {
+  color: #94A3B8;
+}
+
+.header-search-shortcut {
+  font-size: 10px;
+  font-weight: 700;
+  color: #64748B;
+  background: #E2E8F0;
+  padding: 2px 5px;
+  border-radius: 4px;
+  border: 1px solid #CBD5E1;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.header-search-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  width: 420px;
+  max-width: 90vw;
+  background: #FFFFFF;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: 0 20px 35px -5px rgba(15, 23, 42, 0.18), 0 8px 12px -4px rgba(15, 23, 42, 0.08);
+  z-index: 100;
+  overflow: hidden;
+  animation: searchDropdownFadeIn 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes searchDropdownFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.header-search-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid #F1F5F9;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.header-search-item:last-child {
+  border-bottom: none;
+}
+
+.header-search-item:hover {
+  background: #F8FAFC;
 }
 
 /* Tables */
@@ -424,29 +641,47 @@ button, input, select, textarea {
    Print Media Styles (Thermal POS & Paper Receipts)
    ======================================================== */
 @media print {
-  body, html {
+  /* 1. Reset Root, Body & HTML */
+  html, body {
     background: #FFFFFF !important;
+    color: #000000 !important;
     overflow: visible !important;
     height: auto !important;
     width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
 
-  /* Hide everything except the receipt */
+  /* 2. Completely hide the entire desktop app shell and background screen */
+  .desktop-app-container,
+  .desktop-main-wrapper,
   .desktop-sidebar,
+  .desktop-sidebar-edge-trigger,
+  .desktop-sidebar-backdrop,
   .desktop-header,
+  .desktop-content-area,
+  .desktop-content-inner,
+  .desktop-toast,
   .no-print,
   button,
   .tap-btn {
     display: none !important;
   }
 
+  /* 3. Modal Backdrop Reset */
   .modal-backdrop {
     position: static !important;
     background: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
     padding: 0 !important;
+    margin: 0 !important;
     display: block !important;
+    width: 100% !important;
+    height: auto !important;
   }
 
+  /* 4. Modal Dialog Reset */
   .desktop-modal-dialog {
     box-shadow: none !important;
     border: none !important;
@@ -455,15 +690,31 @@ button, input, select, textarea {
     width: 100% !important;
     margin: 0 auto !important;
     background: transparent !important;
+    display: block !important;
+    animation: none !important;
   }
 
+  /* 5. Printable Bill / Voucher Card Only */
   #printable-voucher {
-    border: 1.5px solid #0F172A !important;
-    max-width: 420px !important;
-    margin: 10px auto !important;
+    display: block !important;
+    border: 2px solid #0F172A !important;
+    border-radius: 12px !important;
+    max-width: 440px !important;
+    width: 100% !important;
+    margin: 20px auto !important;
     box-shadow: none !important;
-    padding: 16px !important;
+    padding: 24px !important;
+    background: #FFFFFF !important;
     page-break-inside: avoid !important;
+    page-break-before: avoid !important;
+    page-break-after: avoid !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  @page {
+    size: auto;
+    margin: 10mm;
   }
 }
 

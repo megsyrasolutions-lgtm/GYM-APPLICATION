@@ -28,77 +28,69 @@ export default function WhatsAppModal({ data, onClose, onSent }) {
   const [copied, setCopied] = useState(false);
   const [phoneError, setPhoneError] = useState('');
 
-  // Formally structured, grammatically correct templates (No hashtags, formal structure)
+  // Clean, professional, friendly fitness club templates (Human, not AI-robotic)
   const templates = {
     receipt: 
-`*BODYLIFE FITNESS CLUB*
-*Official Payment Receipt*
+`🧾 *BODYLIFE FITNESS CLUB — PAYMENT RECEIPT*
 
-Dear ${memberName},
+Hello *${memberName}*,
 
-We gratefully acknowledge receipt of your membership fee payment. Your transaction has been recorded in our official register.
+Thank you for your payment! Here is your official fee confirmation:
 
-*Payment Summary:*
-• Receipt Number: ${receiptId}
-• Member ID: ${memberId}
-• Amount Paid: ₹${paidAmount.toLocaleString()}
-• Payment Date: ${paymentDate}
-• Payment Mode: ${paymentMode}
-• Membership Plan: ${packageName}
-• Outstanding Balance: ${pendingAmount > 0 ? `₹${pendingAmount.toLocaleString()}` : 'Nil (Fully Settled)'}
+📄 *Invoice Details:*
+• Receipt No: *${receiptId}*
+• Member ID: *${memberId}*
+• Plan: *${packageName}*
+• Amount Paid: *₹${paidAmount.toLocaleString()}* (${paymentMode})
+• Payment Date: *${paymentDate}*
+• Balance Due: *${pendingAmount > 0 ? `₹${pendingAmount.toLocaleString()}` : 'Nil (Fully Settled)'}*
 
-Thank you for choosing BodyLife Fitness Club. If you require any further assistance, please feel free to reach out to our front desk.
+Your membership account is active in our gym database. Stay consistent and crush your goals! 🏋️‍♂️💥
 
-Sincerely,
-BodyLife Fitness Administration
-Front Desk Management`,
+— *BodyLife Fitness Management*`,
 
     due_notice: 
-`*BODYLIFE FITNESS CLUB*
-*Membership Fee Due Notice*
+`*BODYLIFE FITNESS CLUB* 🏋️‍♂️
+*Pending Fee Reminder*
 
-Dear ${memberName},
+Hi *${memberName}*,
 
-This is a formal communication from BodyLife Fitness Club regarding your membership account.
+Hope you're enjoying your workout sessions at BodyLife Fitness Club!
 
-Our records indicate that there is an outstanding balance associated with your membership plan. Please find the details below:
+This is a quick friendly reminder regarding your pending membership balance:
 
-*Account Statement:*
-• Member ID: ${memberId}
-• Membership Plan: ${packageName}
-• Outstanding Due: ₹${pendingAmount.toLocaleString()}
-• Payment Due Date: ${expiryDate}
+📋 *Payment Due Details:*
+• Member ID: *${memberId}*
+• Plan: *${packageName}*
+• Pending Amount: *₹${pendingAmount.toLocaleString()}*
+• Due Date: *${expiryDate}*
 
-We kindly request that you settle this outstanding balance at your earliest convenience. Payments may be made via Cash or UPI at the gym reception desk.
+Kindly clear the balance at the reception desk via Cash or UPI at your earliest convenience.
 
-If you have already cleared this payment, please disregard this notice or present your payment confirmation to our front desk.
+If you have already paid, please ignore this message. Keep up the great work! 💪
 
-Warm regards,
-Accounts & Billing Department
-BodyLife Fitness Club`,
+— *BodyLife Fitness Desk*`,
 
     renewal: 
-`*BODYLIFE FITNESS CLUB*
-*Membership Renewal Advisory*
+`*BODYLIFE FITNESS CLUB* 🏋️‍♂️
+*Membership Renewal Reminder*
 
-Dear ${memberName},
+Hi *${memberName}*,
 
-We hope you are enjoying your workout experience at BodyLife Fitness Club.
+Your gym membership (*${packageName}*) is scheduled to expire on *${expiryDate}*.
 
-This is an advance advisory to inform you that your current membership plan (${packageName}) is scheduled to expire on ${expiryDate}.
+Renew before the due date to keep your daily workout routine and gym access uninterrupted!
 
-To ensure uninterrupted access to the gym premises, training facilities, and personal amenities, we encourage you to renew your membership prior to the expiration date.
+📋 *Membership Details:*
+• Member ID: *${memberId}*
+• Active Plan: *${packageName}*
+• Expiry Date: *${expiryDate}*
+• Renewal Fee: *₹${(totalFee || 2000).toLocaleString()}*
 
-*Membership Details:*
-• Member ID: ${memberId}
-• Current Plan: ${packageName}
-• Expiration Date: ${expiryDate}
-• Renewal Fee: ₹${(totalFee || 2000).toLocaleString()}
+You can renew in seconds via UPI (GPay / PhonePe) or Cash at the gym reception desk.
 
-For renewal assistance or to inquire about other membership options, please visit the reception desk.
-
-Best regards,
-BodyLife Fitness Club Management`
+See you at the gym! 💪🔥
+— *Team BodyLife Fitness*`
   };
 
   const [messageText, setMessageText] = useState(templates[initialTemplate]);
